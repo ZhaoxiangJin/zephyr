@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: Copyright 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+
+sample:
+  name: eBPF PM Residency Profiler
+  description: >
+    Profile which power-management states are actually used at runtime by
+    accumulating per-state entry counts and residency time with the eBPF PM
+    notifier backend.
+
+common:
+  platform_allow:
+    - frdm_mcxn236
+  tags: ebpf pm
+
+tests:
+  sample.ebpf.pm_residency:
+    integration_platforms:
+      - frdm_mcxn236
+    platform_allow:
+      - frdm_mcxn236
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+        - 'eBPF PM residency profiler detached\.'
+    tags: ebpf pm

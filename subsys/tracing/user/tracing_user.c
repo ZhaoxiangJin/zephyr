@@ -24,6 +24,7 @@ void __weak sys_trace_thread_priority_set_user(struct k_thread *thread, int prio
 void __weak sys_trace_isr_enter_user(void) {}
 void __weak sys_trace_isr_exit_user(void) {}
 void __weak sys_trace_idle_user(void) {}
+void __weak sys_trace_idle_exit_user(void) {}
 void __weak sys_trace_sys_init_enter_user(const struct init_entry *entry, int level) {}
 void __weak sys_trace_sys_init_exit_user(const struct init_entry *entry, int level, int result) {}
 void __weak sys_trace_gpio_pin_interrupt_configure_enter_user(const struct device *port,
@@ -234,6 +235,8 @@ void sys_trace_idle(void)
 
 void sys_trace_idle_exit(void)
 {
+	sys_trace_idle_exit_user();
+
 	if (IS_ENABLED(CONFIG_CPU_LOAD)) {
 		cpu_load_on_exit_idle();
 	}
