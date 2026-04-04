@@ -85,8 +85,11 @@ enum mcumgr_group_t {
 
 	/** Zephyr-specific groups decrease from PERUSER to avoid collision with upstream and
 	 *  user-defined groups.
-	 *  Zephyr-specific: Basic group
+	 *  Zephyr-specific: eBPF management group
 	 */
+	ZEPHYR_MGMT_GRP_EBPF	= (MGMT_GROUP_ID_PERUSER - 2),
+
+	/** Zephyr-specific: Basic group */
 	ZEPHYR_MGMT_GRP_BASIC	= (MGMT_GROUP_ID_PERUSER - 1),
 };
 

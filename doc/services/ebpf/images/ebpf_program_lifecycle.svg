@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1340 810" role="img" aria-labelledby="title desc">
+  <title id="title">Program session lifecycle</title>
+  <desc id="desc">Diagram of the eBPF program session states Detached, Attached, Verified, and Enabled, including disable and detach rollback behavior.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#29455f" />
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#3a4e64" flood-opacity="0.08" />
+    </filter>
+    <style>
+      .bg { fill: #fcfdff; }
+      .frame { fill: none; stroke: #d7dee8; stroke-width: 1.5; }
+      .headline { fill: #17324a; font: 700 30px "Segoe UI", Arial, sans-serif; letter-spacing: 0.2px; }
+      .subheadline { fill: #5b7287; font: 15px "Segoe UI", Arial, sans-serif; }
+      .panel { stroke-width: 1.4; filter: url(#shadow); }
+      .panel-blue { fill: #f4f8ff; stroke: #c7d5ea; }
+      .panel-sand { fill: #fff9f0; stroke: #ddc79a; }
+      .panel-green { fill: #f4fbf4; stroke: #c6dcc3; }
+      .panel-rose { fill: #fff6f4; stroke: #e3c2bb; }
+      .panel-slate { fill: #f6f8fb; stroke: #ccd5df; }
+      .panel-divider { stroke: #dde5ee; stroke-width: 1; }
+      .panel-title { fill: #21384f; font: 600 18px "Segoe UI", Arial, sans-serif; }
+      .panel-subtitle { fill: #61788c; font: 14px "Segoe UI", Arial, sans-serif; }
+      .card { stroke-width: 1.5; filter: url(#shadow); }
+      .card-blue { fill: #ffffff; stroke: #7d9fc3; }
+      .card-sand { fill: #fffefb; stroke: #cba76f; }
+      .card-green { fill: #fdfffd; stroke: #92b08e; }
+      .card-rose { fill: #fffdfc; stroke: #d5988a; }
+      .card-slate { fill: #fbfcfe; stroke: #98a9bc; }
+      .card-title { fill: #1e3349; font: 600 19px "Segoe UI", Arial, sans-serif; }
+      .card-body { fill: #5a6f84; font: 13px "Segoe UI", Arial, sans-serif; }
+      .badge { stroke-width: 0; }
+      .badge-blue { fill: #e6f0ff; }
+      .badge-sand { fill: #f3ead8; }
+      .badge-green { fill: #e4f0e2; }
+      .badge-rose { fill: #f6e4e0; }
+      .badge-slate { fill: #e8edf3; }
+      .badge-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .badge-text-blue { fill: #416488; }
+      .badge-text-sand { fill: #7a6130; }
+      .badge-text-green { fill: #4d6b4b; }
+      .badge-text-rose { fill: #8a584c; }
+      .badge-text-slate { fill: #4c6077; }
+      .pill { stroke-width: 0; }
+      .pill-blue { fill: #dfeefe; }
+      .pill-sand { fill: #efe5d2; }
+      .pill-green { fill: #dfeedd; }
+      .pill-rose { fill: #f5e3de; }
+      .pill-slate { fill: #e8edf4; }
+      .pill-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .pill-text-blue { fill: #3c648a; }
+      .pill-text-sand { fill: #725a2c; }
+      .pill-text-green { fill: #4d6b4b; }
+      .pill-text-rose { fill: #875447; }
+      .pill-text-slate { fill: #4e637a; }
+      .label-bubble { stroke-width: 1; }
+      .label-bubble-blue { fill: #ffffff; stroke: #c9d9ed; }
+      .label-bubble-sand { fill: #fffefa; stroke: #dbc8a7; }
+      .label-bubble-green { fill: #ffffff; stroke: #c6dcc3; }
+      .label-bubble-rose { fill: #ffffff; stroke: #e4c8c1; }
+      .label-bubble-slate { fill: #ffffff; stroke: #d7dee8; }
+      .label-bubble-text { fill: #4e647a; font: 12px "Segoe UI", Arial, sans-serif; }
+      .note { stroke-width: 1.3; filter: url(#shadow); }
+      .note-blue { fill: #f8fbff; stroke: #c9d9ed; }
+      .note-sand { fill: #fffdf8; stroke: #decda8; }
+      .note-green { fill: #f8fcf7; stroke: #c8ddc6; }
+      .note-rose { fill: #fffaf8; stroke: #e6cbc4; }
+      .note-slate { fill: #fafbfd; stroke: #d7dee8; }
+      .note-title { fill: #22384d; font: 600 15px "Segoe UI", Arial, sans-serif; }
+      .note-body { fill: #5d7286; font: 13px "Segoe UI", Arial, sans-serif; }
+      .zone { fill: none; stroke-width: 1.8; stroke-dasharray: 10 8; }
+      .zone-blue { stroke: #81a6cd; }
+      .zone-sand { stroke: #c5a86a; }
+      .zone-green { stroke: #92b08e; }
+      .zone-rose { stroke: #d59b8e; }
+      .zone-slate { stroke: #9eafc1; }
+      .edge { stroke: #29455f; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+      .edge-dashed { stroke-dasharray: 8 7; }
+      .caption { fill: #5c7387; font: 14px "Segoe UI", Arial, sans-serif; }
+      
+    </style>
+    
+  </defs>
+  <rect class="bg" x="0" y="0" width="1340" height="810" rx="24" ry="24" />
+  <rect class="frame" x="12" y="12" width="1316" height="786" rx="20" ry="20" />
+  <rect class="panel panel-blue" x="52" y="170" width="920" height="590" rx="28" ry="28" />
+<line class="panel-divider" x1="52" y1="234" x2="972" y2="234" />
+<rect class="panel panel-slate" x="1004" y="170" width="282" height="590" rx="28" ry="28" />
+<line class="panel-divider" x1="1004" y1="234" x2="1286" y2="234" />
+<path class="edge" d="M 340 316 L 604 316" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 716 374 L 716 424 Q 716 442 734 442 L 820 442 Q 838 442 838 460 L 838 500" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 726 558 L 560 558 Q 560 558 560 558 L 560 558 Q 560 558 560 558 L 470 558" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 358 500 L 358 450 Q 358 432 340 432 L 280 432 Q 262 432 262 414 L 262 412 Q 262 394 244 394 L 236 394 Q 226 394 226 384 L 226 374" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 358 500 L 358 476 Q 358 458 376 458 L 820 458 Q 838 458 838 476 L 838 500" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 604 344 L 498 344 Q 480 344 480 362 L 480 622 Q 480 640 462 640 L 174 640 Q 156 640 156 622 L 156 374" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 766 616 L 766 642 Q 766 660 748 660 L 246 660 Q 228 660 228 642 L 228 374" fill="none" marker-end="url(#arrow)" />
+<rect class="card card-slate" x="116" y="258" width="224" height="116" rx="20" ry="20" />
+<rect class="badge badge-slate" x="132" y="272" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="604" y="258" width="224" height="116" rx="20" ry="20" />
+<rect class="badge badge-blue" x="620" y="272" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-sand" x="726" y="500" width="224" height="116" rx="20" ry="20" />
+<rect class="badge badge-sand" x="742" y="514" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="246" y="500" width="224" height="116" rx="20" ry="20" />
+<rect class="badge badge-green" x="262" y="514" width="86" height="24" rx="12" ry="12" />
+<rect class="note note-blue" x="1028" y="258" width="232" height="144" rx="20" ry="20" />
+<rect class="note note-sand" x="1028" y="414" width="232" height="160" rx="20" ry="20" />
+<rect class="note note-green" x="1028" y="586" width="232" height="160" rx="20" ry="20" />
+<text class="headline" x="56" y="80">Program session lifecycle</text>
+<text class="subheadline" x="56" y="112" text-anchor="start"><tspan x="56" dy="0">One eBPF program owns one current attachment session. The diagram shows the real runtime rollback rules: disable returns to</tspan><tspan x="56" dy="18">VERIFIED, while detach ends the session entirely.</tspan></text>
+<text class="panel-title" x="74" y="208" text-anchor="start"><tspan x="74" dy="0">State machine</tspan></text>
+<text class="panel-subtitle" x="74" y="258" text-anchor="start"><tspan x="74" dy="0">Attach selects one concrete target. Enable runs verification and only publishes after the current session is still valid.</tspan></text>
+<text class="panel-title" x="1026" y="208" text-anchor="start"><tspan x="1026" dy="0">Session facts</tspan></text>
+<text class="panel-subtitle" x="1026" y="258" text-anchor="start"><tspan x="1026" dy="0">These details matter when</tspan><tspan x="1026" dy="17">reasoning about reloads, stats,</tspan><tspan x="1026" dy="17">and bundle teardown.</tspan></text>
+<text class="badge-text badge-text-slate" x="175" y="288" text-anchor="middle"><tspan x="175" dy="0">state</tspan></text>
+<text class="card-title" x="228" y="316" text-anchor="middle"><tspan x="228" dy="0">DETACHED</tspan></text>
+<text class="card-body" x="228" y="345" text-anchor="middle"><tspan x="228" dy="0">no current target</tspan><tspan x="228" dy="16">safe idle baseline</tspan></text>
+<text class="badge-text badge-text-blue" x="663" y="288" text-anchor="middle"><tspan x="663" dy="0">state</tspan></text>
+<text class="card-title" x="716" y="316" text-anchor="middle"><tspan x="716" dy="0">ATTACHED</tspan></text>
+<text class="card-body" x="716" y="345" text-anchor="middle"><tspan x="716" dy="0">target selected</tspan><tspan x="716" dy="16">not yet verified for this</tspan><tspan x="716" dy="16">session</tspan></text>
+<text class="badge-text badge-text-sand" x="785" y="530" text-anchor="middle"><tspan x="785" dy="0">state</tspan></text>
+<text class="card-title" x="838" y="558" text-anchor="middle"><tspan x="838" dy="0">VERIFIED</tspan></text>
+<text class="card-body" x="838" y="587" text-anchor="middle"><tspan x="838" dy="0">verification passed</tspan><tspan x="838" dy="16">not yet published on the</tspan><tspan x="838" dy="16">hot path</tspan></text>
+<text class="badge-text badge-text-green" x="305" y="530" text-anchor="middle"><tspan x="305" dy="0">state</tspan></text>
+<text class="card-title" x="358" y="558" text-anchor="middle"><tspan x="358" dy="0">ENABLED</tspan></text>
+<text class="card-body" x="358" y="587" text-anchor="middle"><tspan x="358" dy="0">published in target</tspan><tspan x="358" dy="16">snapshot</tspan><tspan x="358" dy="16">can execute on native</tspan><tspan x="358" dy="16">events</tspan></text>
+<text class="note-title" x="1046" y="288" text-anchor="start"><tspan x="1046" dy="0">Attach starts a new session</tspan></text>
+<text class="note-body" x="1046" y="316" text-anchor="start"><tspan x="1046" dy="0">session_seq increments when</tspan><tspan x="1046" dy="16">a target is attached.</tspan><tspan x="1046" dy="16">A new attachment session</tspan><tspan x="1046" dy="16">starts at that point.</tspan></text>
+<text class="note-title" x="1046" y="444" text-anchor="start"><tspan x="1046" dy="0">Enable is guarded</tspan></text>
+<text class="note-body" x="1046" y="472" text-anchor="start"><tspan x="1046" dy="0">Verification runs without</tspan><tspan x="1046" dy="16">holding the program lock.</tspan><tspan x="1046" dy="16">Publication succeeds only if</tspan><tspan x="1046" dy="16">the same session is still</tspan><tspan x="1046" dy="16">current.</tspan></text>
+<text class="note-title" x="1046" y="616" text-anchor="start"><tspan x="1046" dy="0">Disable vs detach</tspan></text>
+<text class="note-body" x="1046" y="644" text-anchor="start"><tspan x="1046" dy="0">disable removes the program</tspan><tspan x="1046" dy="16">from dispatch and returns to</tspan><tspan x="1046" dy="16">VERIFIED.</tspan><tspan x="1046" dy="16">detach clears the target and</tspan><tspan x="1046" dy="16">returns to DETACHED.</tspan></text>
+<text class="caption" x="512" y="738" text-anchor="middle"><tspan x="512" dy="0">The important architectural idea is session-scoping: verification and publication both belong to the current attachment, not to the program forever.</tspan></text>
+<rect class="label-bubble label-bubble-blue" x="409" y="302" width="126" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-sand" x="666" y="436" width="172" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-green" x="528" y="544" width="188" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-green" x="554" y="434" width="92" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-slate" x="234" y="632" width="136" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-slate" x="405" y="466" width="150" height="28" rx="14" ry="14" />
+<text class="label-bubble-text" x="472" y="321" text-anchor="middle"><tspan x="472" dy="0">attach(target)</tspan></text>
+<text class="label-bubble-text" x="752" y="455" text-anchor="middle"><tspan x="752" dy="0">enable() runs verifier</tspan></text>
+<text class="label-bubble-text" x="622" y="563" text-anchor="middle"><tspan x="622" dy="0">publish immutable snapshot</tspan></text>
+<text class="label-bubble-text" x="600" y="453" text-anchor="middle"><tspan x="600" dy="0">disable</tspan></text>
+<text class="label-bubble-text" x="302" y="651" text-anchor="middle"><tspan x="302" dy="0">detach / unload</tspan></text>
+<text class="label-bubble-text" x="480" y="485" text-anchor="middle"><tspan x="480" dy="0">detach before enable</tspan></text>
+</svg>

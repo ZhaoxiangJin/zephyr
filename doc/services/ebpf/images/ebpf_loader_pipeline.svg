@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 820" role="img" aria-labelledby="title desc">
+  <title id="title">eBPF loader pipeline</title>
+  <desc id="desc">Diagram showing the runtime loader transaction, the registry lock window, and when a named handle becomes visible.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#29455f" />
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#3a4e64" flood-opacity="0.08" />
+    </filter>
+    <style>
+      .bg { fill: #fcfdff; }
+      .frame { fill: none; stroke: #d7dee8; stroke-width: 1.5; }
+      .headline { fill: #17324a; font: 700 30px "Segoe UI", Arial, sans-serif; letter-spacing: 0.2px; }
+      .subheadline { fill: #5b7287; font: 15px "Segoe UI", Arial, sans-serif; }
+      .panel { stroke-width: 1.4; filter: url(#shadow); }
+      .panel-blue { fill: #f4f8ff; stroke: #c7d5ea; }
+      .panel-sand { fill: #fff9f0; stroke: #ddc79a; }
+      .panel-green { fill: #f4fbf4; stroke: #c6dcc3; }
+      .panel-rose { fill: #fff6f4; stroke: #e3c2bb; }
+      .panel-slate { fill: #f6f8fb; stroke: #ccd5df; }
+      .panel-divider { stroke: #dde5ee; stroke-width: 1; }
+      .panel-title { fill: #21384f; font: 600 18px "Segoe UI", Arial, sans-serif; }
+      .panel-subtitle { fill: #61788c; font: 14px "Segoe UI", Arial, sans-serif; }
+      .card { stroke-width: 1.5; filter: url(#shadow); }
+      .card-blue { fill: #ffffff; stroke: #7d9fc3; }
+      .card-sand { fill: #fffefb; stroke: #cba76f; }
+      .card-green { fill: #fdfffd; stroke: #92b08e; }
+      .card-rose { fill: #fffdfc; stroke: #d5988a; }
+      .card-slate { fill: #fbfcfe; stroke: #98a9bc; }
+      .card-title { fill: #1e3349; font: 600 19px "Segoe UI", Arial, sans-serif; }
+      .card-body { fill: #5a6f84; font: 13px "Segoe UI", Arial, sans-serif; }
+      .badge { stroke-width: 0; }
+      .badge-blue { fill: #e6f0ff; }
+      .badge-sand { fill: #f3ead8; }
+      .badge-green { fill: #e4f0e2; }
+      .badge-rose { fill: #f6e4e0; }
+      .badge-slate { fill: #e8edf3; }
+      .badge-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .badge-text-blue { fill: #416488; }
+      .badge-text-sand { fill: #7a6130; }
+      .badge-text-green { fill: #4d6b4b; }
+      .badge-text-rose { fill: #8a584c; }
+      .badge-text-slate { fill: #4c6077; }
+      .pill { stroke-width: 0; }
+      .pill-blue { fill: #dfeefe; }
+      .pill-sand { fill: #efe5d2; }
+      .pill-green { fill: #dfeedd; }
+      .pill-rose { fill: #f5e3de; }
+      .pill-slate { fill: #e8edf4; }
+      .pill-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .pill-text-blue { fill: #3c648a; }
+      .pill-text-sand { fill: #725a2c; }
+      .pill-text-green { fill: #4d6b4b; }
+      .pill-text-rose { fill: #875447; }
+      .pill-text-slate { fill: #4e637a; }
+      .label-bubble { stroke-width: 1; }
+      .label-bubble-blue { fill: #ffffff; stroke: #c9d9ed; }
+      .label-bubble-sand { fill: #fffefa; stroke: #dbc8a7; }
+      .label-bubble-green { fill: #ffffff; stroke: #c6dcc3; }
+      .label-bubble-rose { fill: #ffffff; stroke: #e4c8c1; }
+      .label-bubble-slate { fill: #ffffff; stroke: #d7dee8; }
+      .label-bubble-text { fill: #4e647a; font: 12px "Segoe UI", Arial, sans-serif; }
+      .note { stroke-width: 1.3; filter: url(#shadow); }
+      .note-blue { fill: #f8fbff; stroke: #c9d9ed; }
+      .note-sand { fill: #fffdf8; stroke: #decda8; }
+      .note-green { fill: #f8fcf7; stroke: #c8ddc6; }
+      .note-rose { fill: #fffaf8; stroke: #e6cbc4; }
+      .note-slate { fill: #fafbfd; stroke: #d7dee8; }
+      .note-title { fill: #22384d; font: 600 15px "Segoe UI", Arial, sans-serif; }
+      .note-body { fill: #5d7286; font: 13px "Segoe UI", Arial, sans-serif; }
+      .zone { fill: none; stroke-width: 1.8; stroke-dasharray: 10 8; }
+      .zone-blue { stroke: #81a6cd; }
+      .zone-sand { stroke: #c5a86a; }
+      .zone-green { stroke: #92b08e; }
+      .zone-rose { stroke: #d59b8e; }
+      .zone-slate { stroke: #9eafc1; }
+      .edge { stroke: #29455f; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+      .edge-dashed { stroke-dasharray: 8 7; }
+      .caption { fill: #5c7387; font: 14px "Segoe UI", Arial, sans-serif; }
+      
+    </style>
+    
+  </defs>
+  <rect class="bg" x="0" y="0" width="1500" height="820" rx="24" ry="24" />
+  <rect class="frame" x="12" y="12" width="1476" height="796" rx="20" ry="20" />
+  <rect class="panel panel-sand" x="48" y="160" width="240" height="600" rx="28" ry="28" />
+<line class="panel-divider" x1="48" y1="224" x2="288" y2="224" />
+<rect class="panel panel-blue" x="320" y="160" width="860" height="600" rx="28" ry="28" />
+<line class="panel-divider" x1="320" y1="224" x2="1180" y2="224" />
+<rect class="panel panel-slate" x="1212" y="160" width="240" height="600" rx="28" ry="28" />
+<line class="panel-divider" x1="1212" y1="224" x2="1452" y2="224" />
+<rect class="zone zone-slate" x="618" y="224" width="840" height="430" rx="24" ry="24" />
+<rect class="pill pill-slate" x="636" y="208" width="144" height="28" rx="14" ry="14" />
+<path class="edge" d="M 260 354 L 322 354 Q 340 354 340 336 L 340 315 Q 340 298 357 298 L 374 298" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 586 298 L 646 298" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 752 352 L 752 374 Q 752 392 734 392 L 529 392 Q 511 392 511 410 L 511 452" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 618 506 L 662 506" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 858 298 L 876 298 Q 894 298 894 316 L 894 385 Q 894 400 909 400 L 924 400" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 769 560 L 769 596" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 1031 454 L 1031 548 Q 1031 566 1013 566 L 824 566 Q 809 566 809 581 L 809 596" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 896 642 L 908 642 Q 920 642 920 630 L 920 568 Q 920 550 938 550 L 1152 550 Q 1170 550 1170 532 L 1170 354 Q 1170 336 1188 336 L 1240 336" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 1332 390 L 1332 466" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 789 692 L 789 698 Q 789 704 783 704 L 518 704 Q 500 704 500 686 L 500 650" fill="none" marker-end="url(#arrow)" />
+<rect class="card card-sand" x="76" y="294" width="184" height="120" rx="20" ry="20" />
+<rect class="badge badge-sand" x="92" y="308" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="374" y="244" width="212" height="108" rx="20" ry="20" />
+<rect class="badge badge-blue" x="390" y="258" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="646" y="244" width="212" height="108" rx="20" ry="20" />
+<rect class="badge badge-blue" x="662" y="258" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="404" y="452" width="214" height="108" rx="20" ry="20" />
+<rect class="badge badge-blue" x="420" y="466" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="662" y="452" width="214" height="108" rx="20" ry="20" />
+<rect class="badge badge-blue" x="678" y="466" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="924" y="346" width="214" height="108" rx="20" ry="20" />
+<rect class="badge badge-blue" x="940" y="360" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="682" y="596" width="214" height="92" rx="20" ry="20" />
+<rect class="badge badge-blue" x="698" y="610" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-slate" x="1240" y="282" width="184" height="108" rx="20" ry="20" />
+<rect class="badge badge-slate" x="1256" y="296" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-slate" x="1240" y="466" width="184" height="120" rx="20" ry="20" />
+<rect class="badge badge-slate" x="1256" y="480" width="86" height="24" rx="12" ry="12" />
+<rect class="note note-rose" x="370" y="598" width="280" height="144" rx="20" ry="20" />
+<rect class="note note-green" x="930" y="560" width="224" height="176" rx="20" ry="20" />
+<text class="headline" x="52" y="76">Loader pipeline and transaction boundary</text>
+<text class="subheadline" x="52" y="108" text-anchor="start"><tspan x="52" dy="0">Loading is intentionally more than parsing bytes: the loader validates, resolves, instantiates, and only then exposes one named</tspan><tspan x="52" dy="18">handle to the rest of the system.</tspan></text>
+<text class="panel-title" x="70" y="198" text-anchor="start"><tspan x="70" dy="0">Serialized input</tspan></text>
+<text class="panel-subtitle" x="70" y="248" text-anchor="start"><tspan x="70" dy="0">A compact bundle image</tspan><tspan x="70" dy="17">carries bytecode, maps,</tspan><tspan x="70" dy="17">relocation metadata, names,</tspan><tspan x="70" dy="17">and optional</tspan><tspan x="70" dy="17">authentication.</tspan></text>
+<text class="panel-title" x="342" y="198" text-anchor="start"><tspan x="342" dy="0">Load transaction</tspan></text>
+<text class="panel-subtitle" x="342" y="248" text-anchor="start"><tspan x="342" dy="0">The loader keeps intermediate runtime state private until the named bundle is coherent and safe to publish.</tspan></text>
+<text class="panel-title" x="1234" y="198" text-anchor="start"><tspan x="1234" dy="0">Visible result</tspan></text>
+<text class="panel-subtitle" x="1234" y="248" text-anchor="start"><tspan x="1234" dy="0">Only a successful load</tspan><tspan x="1234" dy="17">registers a handle that</tspan><tspan x="1234" dy="17">later control operations</tspan><tspan x="1234" dy="17">can target by name.</tspan></text>
+<text class="pill-text pill-text-slate" x="708" y="227" text-anchor="middle"><tspan x="708" dy="0">registry lock window</tspan></text>
+<text class="badge-text badge-text-sand" x="135" y="324" text-anchor="middle"><tspan x="135" dy="0">input bytes</tspan></text>
+<text class="card-title" x="168" y="352" text-anchor="middle"><tspan x="168" dy="0">Bundle image v2</tspan></text>
+<text class="card-body" x="168" y="381" text-anchor="middle"><tspan x="168" dy="0">code, maps, relocs</tspan><tspan x="168" dy="16">name, auth</tspan></text>
+<text class="badge-text badge-text-blue" x="433" y="274" text-anchor="middle"><tspan x="433" dy="0">gate 1</tspan></text>
+<text class="card-title" x="480" y="302" text-anchor="middle"><tspan x="480" dy="0">Validate image</tspan></text>
+<text class="card-body" x="480" y="331" text-anchor="middle"><tspan x="480" dy="0">header, ranges</tspan><tspan x="480" dy="16">auth block before</tspan><tspan x="480" dy="16">objects</tspan></text>
+<text class="badge-text badge-text-blue" x="705" y="274" text-anchor="middle"><tspan x="705" dy="0">gate 2</tspan></text>
+<text class="card-title" x="752" y="302" text-anchor="middle"><tspan x="752" dy="0">Resolve names</tspan></text>
+<text class="card-body" x="752" y="331" text-anchor="middle"><tspan x="752" dy="0">bundle name uniqueness</tspan><tspan x="752" dy="16">stable hooks to targets</tspan></text>
+<text class="badge-text badge-text-blue" x="463" y="482" text-anchor="middle"><tspan x="463" dy="0">objects</tspan></text>
+<text class="card-title" x="511" y="510" text-anchor="middle"><tspan x="511" dy="0">Create maps</tspan></text>
+<text class="card-body" x="511" y="539" text-anchor="middle"><tspan x="511" dy="0">runtime IDs</tspan><tspan x="511" dy="16">bundle-owned state</tspan><tspan x="511" dy="16">objects</tspan></text>
+<text class="badge-text badge-text-blue" x="721" y="482" text-anchor="middle"><tspan x="721" dy="0">fixups</tspan></text>
+<text class="card-title" x="769" y="510" text-anchor="middle"><tspan x="769" dy="0">Apply relocations</tspan></text>
+<text class="card-body" x="769" y="539" text-anchor="middle"><tspan x="769" dy="0">patch instruction streams</tspan><tspan x="769" dy="16">map references become</tspan><tspan x="769" dy="16">runtime IDs</tspan></text>
+<text class="badge-text badge-text-blue" x="983" y="376" text-anchor="middle"><tspan x="983" dy="0">objects</tspan></text>
+<text class="card-title" x="1031" y="404" text-anchor="middle"><tspan x="1031" dy="0">Create attachments</tspan></text>
+<text class="card-body" x="1031" y="433" text-anchor="middle"><tspan x="1031" dy="0">bundle-owned programs</tspan><tspan x="1031" dy="16">attach to resolved</tspan><tspan x="1031" dy="16">targets</tspan></text>
+<text class="badge-text badge-text-blue" x="741" y="626" text-anchor="middle"><tspan x="741" dy="0">assemble</tspan></text>
+<text class="card-title" x="789" y="654" text-anchor="middle"><tspan x="789" dy="0">Runtime bundle</tspan></text>
+<text class="card-body" x="789" y="683" text-anchor="middle"><tspan x="789" dy="0">coherent set of maps +</tspan><tspan x="789" dy="16">attachments</tspan></text>
+<text class="badge-text badge-text-slate" x="1299" y="312" text-anchor="middle"><tspan x="1299" dy="0">published</tspan></text>
+<text class="card-title" x="1332" y="340" text-anchor="middle"><tspan x="1332" dy="0">Named handle</tspan></text>
+<text class="card-body" x="1332" y="369" text-anchor="middle"><tspan x="1332" dy="0">registry entry</tspan><tspan x="1332" dy="16">flags, status</tspan></text>
+<text class="badge-text badge-text-slate" x="1299" y="496" text-anchor="middle"><tspan x="1299" dy="0">after load</tspan></text>
+<text class="card-title" x="1332" y="524" text-anchor="middle"><tspan x="1332" dy="0">Later control</tspan></text>
+<text class="card-body" x="1332" y="553" text-anchor="middle"><tspan x="1332" dy="0">enable, disable,</tspan><tspan x="1332" dy="16">unload</tspan><tspan x="1332" dy="16">status by name</tspan></text>
+<text class="note-title" x="388" y="628" text-anchor="start"><tspan x="388" dy="0">Failure semantics</tspan></text>
+<text class="note-body" x="388" y="656" text-anchor="start"><tspan x="388" dy="0">Any error tears down partially</tspan><tspan x="388" dy="16">created maps and attachments.</tspan><tspan x="388" dy="16">The named handle stays invisible</tspan><tspan x="388" dy="16">until the whole bundle is coherent.</tspan></text>
+<text class="note-title" x="948" y="590" text-anchor="start"><tspan x="948" dy="0">Why hold the lock so long?</tspan></text>
+<text class="note-body" x="948" y="618" text-anchor="start"><tspan x="948" dy="0">Duplicate-name rejection</tspan><tspan x="948" dy="16">and final registration</tspan><tspan x="948" dy="16">share one lock window.</tspan><tspan x="948" dy="16">That closes the race</tspan><tspan x="948" dy="16">between checking and</tspan><tspan x="948" dy="16">publishing the handle.</tspan></text>
+<text class="caption" x="790" y="784" text-anchor="middle"><tspan x="790" dy="0">The important architectural boundary is publication, not parsing: partial runtime objects never escape the transaction.</tspan></text>
+<rect class="label-bubble label-bubble-sand" x="397" y="356" width="166" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-slate" x="647" y="356" width="210" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-blue" x="641.8" y="562" width="236.4" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-slate" x="1252" y="638" width="160" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-rose" x="721" y="716" width="138" height="28" rx="14" ry="14" />
+<text class="label-bubble-text" x="480" y="375" text-anchor="middle"><tspan x="480" dy="0">auth + structural checks</tspan></text>
+<text class="label-bubble-text" x="752" y="375" text-anchor="middle"><tspan x="752" dy="0">name reservation + hook lookup</tspan></text>
+<text class="label-bubble-text" x="760" y="581" text-anchor="middle"><tspan x="760" dy="0">map references become runtime fixups</tspan></text>
+<text class="label-bubble-text" x="1332" y="657" text-anchor="middle"><tspan x="1332" dy="0">becomes visible here</tspan></text>
+<text class="label-bubble-text" x="790" y="735" text-anchor="middle"><tspan x="790" dy="0">rollback on error</tspan></text>
+</svg>

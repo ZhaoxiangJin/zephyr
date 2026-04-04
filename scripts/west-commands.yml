@@ -97,6 +97,11 @@ west-commands:
       - name: patch
         class: Patch
         help: manage patches for Zephyr modules
+  - file: scripts/west_commands/ebpf.py
+    commands:
+      - name: ebpf
+        class: Ebpf
+        help: build Zephyr eBPF probe bundles
   - file: scripts/west_commands/gtags.py
     commands:
       - name: gtags

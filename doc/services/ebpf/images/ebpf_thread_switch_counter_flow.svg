@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1540 860" role="img" aria-labelledby="title desc">
+  <title id="title">Thread-switch counter flow</title>
+  <desc id="desc">Scenario diagram for the thread-switch counter sample, showing build-time bundle creation, runtime load and enable, stable tracing hook delivery, map updates, and normal application-side map reads.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#29455f" />
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#3a4e64" flood-opacity="0.08" />
+    </filter>
+    <style>
+      .bg { fill: #fcfdff; }
+      .frame { fill: none; stroke: #d7dee8; stroke-width: 1.5; }
+      .headline { fill: #17324a; font: 700 30px "Segoe UI", Arial, sans-serif; letter-spacing: 0.2px; }
+      .subheadline { fill: #5b7287; font: 15px "Segoe UI", Arial, sans-serif; }
+      .panel { stroke-width: 1.4; filter: url(#shadow); }
+      .panel-blue { fill: #f4f8ff; stroke: #c7d5ea; }
+      .panel-sand { fill: #fff9f0; stroke: #ddc79a; }
+      .panel-green { fill: #f4fbf4; stroke: #c6dcc3; }
+      .panel-rose { fill: #fff6f4; stroke: #e3c2bb; }
+      .panel-slate { fill: #f6f8fb; stroke: #ccd5df; }
+      .panel-divider { stroke: #dde5ee; stroke-width: 1; }
+      .panel-title { fill: #21384f; font: 600 18px "Segoe UI", Arial, sans-serif; }
+      .panel-subtitle { fill: #61788c; font: 14px "Segoe UI", Arial, sans-serif; }
+      .card { stroke-width: 1.5; filter: url(#shadow); }
+      .card-blue { fill: #ffffff; stroke: #7d9fc3; }
+      .card-sand { fill: #fffefb; stroke: #cba76f; }
+      .card-green { fill: #fdfffd; stroke: #92b08e; }
+      .card-rose { fill: #fffdfc; stroke: #d5988a; }
+      .card-slate { fill: #fbfcfe; stroke: #98a9bc; }
+      .card-title { fill: #1e3349; font: 600 19px "Segoe UI", Arial, sans-serif; }
+      .card-body { fill: #5a6f84; font: 13px "Segoe UI", Arial, sans-serif; }
+      .badge { stroke-width: 0; }
+      .badge-blue { fill: #e6f0ff; }
+      .badge-sand { fill: #f3ead8; }
+      .badge-green { fill: #e4f0e2; }
+      .badge-rose { fill: #f6e4e0; }
+      .badge-slate { fill: #e8edf3; }
+      .badge-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .badge-text-blue { fill: #416488; }
+      .badge-text-sand { fill: #7a6130; }
+      .badge-text-green { fill: #4d6b4b; }
+      .badge-text-rose { fill: #8a584c; }
+      .badge-text-slate { fill: #4c6077; }
+      .pill { stroke-width: 0; }
+      .pill-blue { fill: #dfeefe; }
+      .pill-sand { fill: #efe5d2; }
+      .pill-green { fill: #dfeedd; }
+      .pill-rose { fill: #f5e3de; }
+      .pill-slate { fill: #e8edf4; }
+      .pill-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .pill-text-blue { fill: #3c648a; }
+      .pill-text-sand { fill: #725a2c; }
+      .pill-text-green { fill: #4d6b4b; }
+      .pill-text-rose { fill: #875447; }
+      .pill-text-slate { fill: #4e637a; }
+      .label-bubble { stroke-width: 1; }
+      .label-bubble-blue { fill: #ffffff; stroke: #c9d9ed; }
+      .label-bubble-sand { fill: #fffefa; stroke: #dbc8a7; }
+      .label-bubble-green { fill: #ffffff; stroke: #c6dcc3; }
+      .label-bubble-rose { fill: #ffffff; stroke: #e4c8c1; }
+      .label-bubble-slate { fill: #ffffff; stroke: #d7dee8; }
+      .label-bubble-text { fill: #4e647a; font: 12px "Segoe UI", Arial, sans-serif; }
+      .note { stroke-width: 1.3; filter: url(#shadow); }
+      .note-blue { fill: #f8fbff; stroke: #c9d9ed; }
+      .note-sand { fill: #fffdf8; stroke: #decda8; }
+      .note-green { fill: #f8fcf7; stroke: #c8ddc6; }
+      .note-rose { fill: #fffaf8; stroke: #e6cbc4; }
+      .note-slate { fill: #fafbfd; stroke: #d7dee8; }
+      .note-title { fill: #22384d; font: 600 15px "Segoe UI", Arial, sans-serif; }
+      .note-body { fill: #5d7286; font: 13px "Segoe UI", Arial, sans-serif; }
+      .zone { fill: none; stroke-width: 1.8; stroke-dasharray: 10 8; }
+      .zone-blue { stroke: #81a6cd; }
+      .zone-sand { stroke: #c5a86a; }
+      .zone-green { stroke: #92b08e; }
+      .zone-rose { stroke: #d59b8e; }
+      .zone-slate { stroke: #9eafc1; }
+      .edge { stroke: #29455f; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+      .edge-dashed { stroke-dasharray: 8 7; }
+      .caption { fill: #5c7387; font: 14px "Segoe UI", Arial, sans-serif; }
+      
+    </style>
+    
+  </defs>
+  <rect class="bg" x="0" y="0" width="1540" height="860" rx="24" ry="24" />
+  <rect class="frame" x="12" y="12" width="1516" height="836" rx="20" ry="20" />
+  <rect class="panel panel-sand" x="44" y="148" width="330" height="322" rx="28" ry="28" />
+<line class="panel-divider" x1="44" y1="212" x2="374" y2="212" />
+<rect class="panel panel-blue" x="406" y="148" width="540" height="322" rx="28" ry="28" />
+<line class="panel-divider" x1="406" y1="212" x2="946" y2="212" />
+<rect class="panel panel-green" x="406" y="500" width="540" height="312" rx="28" ry="28" />
+<line class="panel-divider" x1="406" y1="564" x2="946" y2="564" />
+<rect class="panel panel-rose" x="978" y="148" width="518" height="664" rx="28" ry="28" />
+<line class="panel-divider" x1="978" y1="212" x2="1496" y2="212" />
+<path class="edge" d="M 209 340 L 209 364" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 336 410 L 372 410 Q 390 410 390 392 L 390 303 Q 390 285 408 285 L 442 285" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 652 285 L 700 285" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 547 334 L 547 360" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 805 334 L 805 360" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 652 409 L 700 409" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 805 458 L 805 530 Q 805 548 787 548 L 712 548 Q 696 548 696 564 L 696 580" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 1014 287 L 978 287 Q 960 287 960 305 L 960 472 Q 960 490 942 490 L 438 490 Q 420 490 420 508 L 420 647 Q 420 658 431 658 L 442 658" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 592 658 L 614 658" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 778 658 L 800 658" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 908 658 L 942 658 Q 960 658 960 640 L 960 501 Q 960 483 978 483 L 1014 483" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 1228 483 L 1260 507" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 1236 670 L 1236 655 Q 1236 640 1251 640 L 1492 640 Q 1510 640 1510 622 L 1510 148 Q 1510 130 1492 130 L 823 130 Q 805 130 805 148 L 805 236" fill="none" marker-end="url(#arrow)" />
+<rect class="card card-sand" x="82" y="244" width="254" height="96" rx="20" ry="20" />
+<rect class="badge badge-sand" x="98" y="258" width="90.80000000000001" height="24" rx="12" ry="12" />
+<rect class="card card-sand" x="82" y="364" width="254" height="92" rx="20" ry="20" />
+<rect class="badge badge-sand" x="98" y="378" width="90.80000000000001" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="442" y="236" width="210" height="98" rx="20" ry="20" />
+<rect class="badge badge-blue" x="458" y="250" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="700" y="236" width="210" height="98" rx="20" ry="20" />
+<rect class="badge badge-blue" x="716" y="250" width="90.80000000000001" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="442" y="360" width="210" height="98" rx="20" ry="20" />
+<rect class="badge badge-blue" x="458" y="374" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="700" y="360" width="210" height="98" rx="20" ry="20" />
+<rect class="badge badge-blue" x="716" y="374" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="442" y="610" width="150" height="96" rx="20" ry="20" />
+<rect class="badge badge-green" x="458" y="624" width="90.80000000000001" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="614" y="580" width="164" height="156" rx="20" ry="20" />
+<rect class="badge badge-green" x="630" y="594" width="90.80000000000001" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="800" y="610" width="108" height="96" rx="20" ry="20" />
+<rect class="badge badge-green" x="816" y="624" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-rose" x="1014" y="236" width="204" height="102" rx="20" ry="20" />
+<rect class="badge badge-rose" x="1030" y="250" width="86" height="24" rx="12" ry="12" />
+<rect class="note note-slate" x="1242" y="236" width="216" height="224" rx="20" ry="20" />
+<rect class="card card-rose" x="1014" y="432" width="214" height="102" rx="20" ry="20" />
+<rect class="badge badge-rose" x="1030" y="446" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-rose" x="1260" y="456" width="198" height="102" rx="20" ry="20" />
+<rect class="badge badge-rose" x="1276" y="470" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-rose" x="1136" y="670" width="200" height="102" rx="20" ry="20" />
+<rect class="badge badge-rose" x="1152" y="684" width="86" height="24" rx="12" ry="12" />
+<text class="headline" x="52" y="82">Thread-switch counter: end-to-end flow</text>
+<text class="subheadline" x="52" y="114" text-anchor="start"><tspan x="52" dy="0">One host-built runtime bundle becomes one enabled tracing session. The probe increments counter_map on kernel/thread_switched_in, and normal</tspan><tspan x="52" dy="18">Zephyr code reads that map back out.</tspan></text>
+<text class="panel-title" x="66" y="186" text-anchor="start"><tspan x="66" dy="0">Host-built input</tspan></text>
+<text class="panel-subtitle" x="66" y="236" text-anchor="start"><tspan x="66" dy="0">The sample starts from one restricted-C</tspan><tspan x="66" dy="17">probe and embeds the resulting bundle</tspan><tspan x="66" dy="17">bytes into the application image.</tspan></text>
+<text class="panel-title" x="428" y="186" text-anchor="start"><tspan x="428" dy="0">Runtime control path</tspan></text>
+<text class="panel-subtitle" x="428" y="236" text-anchor="start"><tspan x="428" dy="0">Loader operations instantiate one named bundle, keep a stable map</tspan><tspan x="428" dy="17">name, and enable the attachment only after the handle is coherent.</tspan></text>
+<text class="panel-title" x="428" y="538" text-anchor="start"><tspan x="428" dy="0">Tracing event path</tspan></text>
+<text class="panel-subtitle" x="428" y="588" text-anchor="start"><tspan x="428" dy="0">Once enabled, scheduler callbacks enter through one stable hook name</tspan><tspan x="428" dy="17">and the eBPF program updates the shared counter map on each thread</tspan><tspan x="428" dy="17">switch.</tspan></text>
+<text class="panel-title" x="1000" y="186" text-anchor="start"><tspan x="1000" dy="0">Application-side observation</tspan></text>
+<text class="panel-subtitle" x="1000" y="236" text-anchor="start"><tspan x="1000" dy="0">The sample's own worker thread forces scheduler activity, reads</tspan><tspan x="1000" dy="17">counter_map once per second through named loader helpers, then</tspan><tspan x="1000" dy="17">disables and unloads the bundle by name.</tspan></text>
+<text class="badge-text badge-text-sand" x="143.4" y="274" text-anchor="middle"><tspan x="143.4" dy="0">restricted C</tspan></text>
+<text class="card-title" x="209" y="302" text-anchor="middle"><tspan x="209" dy="0">thread_switch_counter.c</tspan></text>
+<text class="card-body" x="209" y="331" text-anchor="middle"><tspan x="209" dy="0">EBPF_PROGRAM_SCHED</tspan><tspan x="209" dy="16">kernel/thread_switched_in</tspan><tspan x="209" dy="16">counter_map array probe</tspan></text>
+<text class="badge-text badge-text-sand" x="143.4" y="394" text-anchor="middle"><tspan x="143.4" dy="0">bundle bytes</tspan></text>
+<text class="card-title" x="209" y="422" text-anchor="middle"><tspan x="209" dy="0">thread_switch_probe_bundle[]</tspan></text>
+<text class="card-body" x="209" y="451" text-anchor="middle"><tspan x="209" dy="0">west ebpf build output</tspan><tspan x="209" dy="16">embedded loader image bytes</tspan></text>
+<text class="badge-text badge-text-blue" x="501" y="266" text-anchor="middle"><tspan x="501" dy="0">step 1</tspan></text>
+<text class="card-title" x="547" y="294" text-anchor="middle"><tspan x="547" dy="0">ebpf_loader_load</tspan></text>
+<text class="card-body" x="547" y="323" text-anchor="middle"><tspan x="547" dy="0">parse bundle image</tspan><tspan x="547" dy="16">instantiate runtime</tspan><tspan x="547" dy="16">objects</tspan></text>
+<text class="badge-text badge-text-blue" x="761.4" y="266" text-anchor="middle"><tspan x="761.4" dy="0">named handle</tspan></text>
+<text class="card-title" x="805" y="294" text-anchor="middle"><tspan x="805" dy="0">thread_switch_probe</tspan></text>
+<text class="card-body" x="805" y="323" text-anchor="middle"><tspan x="805" dy="0">named runtime bundle</tspan><tspan x="805" dy="16">bundle + attachment</tspan><tspan x="805" dy="16">lifetime owner</tspan></text>
+<text class="badge-text badge-text-blue" x="501" y="390" text-anchor="middle"><tspan x="501" dy="0">step 2</tspan></text>
+<text class="card-title" x="547" y="418" text-anchor="middle"><tspan x="547" dy="0">name counter_map</tspan></text>
+<text class="card-body" x="547" y="447" text-anchor="middle"><tspan x="547" dy="0">stable map name</tspan><tspan x="547" dy="16">used by loader lookup</tspan><tspan x="547" dy="16">helpers</tspan></text>
+<text class="badge-text badge-text-blue" x="759" y="390" text-anchor="middle"><tspan x="759" dy="0">step 3</tspan></text>
+<text class="card-title" x="805" y="418" text-anchor="middle"><tspan x="805" dy="0">ebpf_loader_enable</tspan></text>
+<text class="card-body" x="805" y="447" text-anchor="middle"><tspan x="805" dy="0">verify current session</tspan><tspan x="805" dy="16">publish enabled</tspan><tspan x="805" dy="16">attachment</tspan></text>
+<text class="badge-text badge-text-green" x="503.4" y="640" text-anchor="middle"><tspan x="503.4" dy="0">event source</tspan></text>
+<text class="card-title" x="517" y="668" text-anchor="middle"><tspan x="517" dy="0">kernel/thread_</tspan><tspan x="517" dy="19">switched_in</tspan></text>
+<text class="card-body" x="517" y="716" text-anchor="middle"><tspan x="517" dy="0">stable tracing</tspan><tspan x="517" dy="16">hook</tspan><tspan x="517" dy="16">scheduler switch</tspan><tspan x="517" dy="16">callback</tspan></text>
+<text class="badge-text badge-text-green" x="675.4" y="610" text-anchor="middle"><tspan x="675.4" dy="0">eBPF program</tspan></text>
+<text class="card-title" x="696" y="638" text-anchor="middle"><tspan x="696" dy="0">count_thread_</tspan><tspan x="696" dy="19">switches()</tspan></text>
+<text class="card-body" x="696" y="686" text-anchor="middle"><tspan x="696" dy="0">lookup key 0</tspan><tspan x="696" dy="16">increment value by</tspan><tspan x="696" dy="16">1</tspan></text>
+<text class="badge-text badge-text-green" x="859" y="640" text-anchor="middle"><tspan x="859" dy="0">shared map</tspan></text>
+<text class="card-title" x="854" y="668" text-anchor="middle"><tspan x="854" dy="0">counter_map</tspan></text>
+<text class="card-body" x="854" y="697" text-anchor="middle"><tspan x="854" dy="0">array[0]</tspan><tspan x="854" dy="16">shared</tspan><tspan x="854" dy="16">counter</tspan></text>
+<text class="badge-text badge-text-rose" x="1073" y="266" text-anchor="middle"><tspan x="1073" dy="0">stimulus</tspan></text>
+<text class="card-title" x="1116" y="294" text-anchor="middle"><tspan x="1116" dy="0">worker thread</tspan></text>
+<text class="card-body" x="1116" y="323" text-anchor="middle"><tspan x="1116" dy="0">k_msleep(1) loop</tspan><tspan x="1116" dy="16">forces scheduler thread</tspan><tspan x="1116" dy="16">switches</tspan></text>
+<text class="note-title" x="1260" y="266" text-anchor="start"><tspan x="1260" dy="0">Why this sample is useful</tspan></text>
+<text class="note-body" x="1260" y="294" text-anchor="start"><tspan x="1260" dy="0">It proves that a</tspan><tspan x="1260" dy="16">runtime-loaded tracing</tspan><tspan x="1260" dy="16">probe can update shared</tspan><tspan x="1260" dy="16">state without any shell or</tspan><tspan x="1260" dy="16">static registration path.</tspan><tspan x="1260" dy="16">Normal Zephyr code reads</tspan><tspan x="1260" dy="16">the same counter back</tspan><tspan x="1260" dy="16">through the public loader</tspan><tspan x="1260" dy="16">copy API.</tspan></text>
+<text class="badge-text badge-text-rose" x="1073" y="462" text-anchor="middle"><tspan x="1073" dy="0">normal code</tspan></text>
+<text class="card-title" x="1121" y="490" text-anchor="middle"><tspan x="1121" dy="0">periodic map lookup</tspan></text>
+<text class="card-body" x="1121" y="519" text-anchor="middle"><tspan x="1121" dy="0">ebpf_loader_map_lookup_copy</tspan><tspan x="1121" dy="16">read counter_map[0] once</tspan><tspan x="1121" dy="16">per second</tspan></text>
+<text class="badge-text badge-text-rose" x="1319" y="486" text-anchor="middle"><tspan x="1319" dy="0">output</tspan></text>
+<text class="card-title" x="1359" y="514" text-anchor="middle"><tspan x="1359" dy="0">console report</tspan></text>
+<text class="card-body" x="1359" y="543" text-anchor="middle"><tspan x="1359" dy="0">count=%u (+delta)</tspan><tspan x="1359" dy="16">human-readable runtime</tspan><tspan x="1359" dy="16">signal</tspan></text>
+<text class="badge-text badge-text-rose" x="1195" y="700" text-anchor="middle"><tspan x="1195" dy="0">teardown</tspan></text>
+<text class="card-title" x="1236" y="728" text-anchor="middle"><tspan x="1236" dy="0">disable + unload</tspan></text>
+<text class="card-body" x="1236" y="757" text-anchor="middle"><tspan x="1236" dy="0">ebpf_loader_disable</tspan><tspan x="1236" dy="16">ebpf_loader_unload</tspan></text>
+<text class="caption" x="770" y="836" text-anchor="middle"><tspan x="770" dy="0">This is the story the sample demonstrates end to end: host-built bundle, runtime enable, native scheduler events, shared map update, and plain application-side readout.</tspan></text>
+<rect class="label-bubble label-bubble-sand" x="318" y="470" width="148" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-blue" x="588" y="470" width="176" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-green" x="724" y="520" width="172" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-rose" x="1033" y="570" width="154" height="28" rx="14" ry="14" />
+<text class="label-bubble-text" x="392" y="489" text-anchor="middle"><tspan x="392" dy="0">embed bundle bytes</tspan></text>
+<text class="label-bubble-text" x="676" y="489" text-anchor="middle"><tspan x="676" dy="0">runtime-owned map handle</tspan></text>
+<text class="label-bubble-text" x="810" y="539" text-anchor="middle"><tspan x="810" dy="0">attachment becomes live</tspan></text>
+<text class="label-bubble-text" x="1110" y="589" text-anchor="middle"><tspan x="1110" dy="0">read from normal code</tspan></text>
+</svg>

@@ -1,0 +1,78 @@
+2: * SPDX-FileCopyrightText: Copyright 2026 NXP
+4: * SPDX-License-Identifier: Apache-2.0
+22:/* Global registry of all loaded handles, linked via handle->registry_node.
+24: * duplicate-name checks against publication in ebpf_loader_load() so two
+25: * same-name loads cannot race past each other.
+38:	for (i = 0U; i < header->reloc_count; i++) {
+43:		if (relocs[i].map_index >= header->map_count ||
+46:			return -EINVAL;
+66:	if (header->map_count == 0U) {
+71:	image_maps = (const struct ebpf_loader_image_map *)(image + header->maps_offset);
+72:	maps = k_malloc(sizeof(*maps) * header->map_count);
+74:		return -ENOMEM;
+77:	memset(maps, 0, sizeof(*maps) * header->map_count);
+79:	for (i = 0U; i < header->map_count; i++) {
+87:			return -EINVAL;
+118:	if (header->attachment_count == 0U) {
+123:		(const struct ebpf_loader_image_attachment *)(image + header->attachments_offset);
+124:	relocs = header->reloc_count == 0U ? NULL :
+125:		(const struct ebpf_loader_image_reloc *)(image + header->relocs_offset);
+127:	for (i = 0U; i < header->attachment_count; i++) {
+140:			return -EINVAL;
+145:		    !ebpf_loader_range_valid((size_t)header->auth_offset,
+147:			return -EINVAL;
+152:			return -ENOMEM;
+185:		return -EINVAL;
+197:	 * This also serves to prevent out-of-bounds access to the
+207:		return -ENOMEM;
+213:	k_mutex_init(&handle->lock);
+215:	bundle_name = ebpf_loader_get_string(bytes, header, header->bundle_name_offset);
+218:		return -EINVAL;
+221:	/* Copy the bundle name into loader-owned storage so the handle outlives
+226:	handle->name = k_malloc(name_len);
+227:	if (handle->name == NULL) {
+229:		return -ENOMEM;
+231:	memcpy(handle->name, bundle_name, name_len);
+233:	/* Hold the registry lock across duplicate-name validation and final
+234:	 * registration so two same-name loads cannot slip through concurrently.
+235:	 * If a bundle with the same name already exists, return -EALREADY.
+239:		if ((existing->name != NULL) &&
+240:		    (strcmp(existing->name, bundle_name) == 0)) {
+242:			k_free(handle->name);
+244:			return -EALREADY;
+248:	ret = ebpf_bundle_create(handle->name, &handle->bundle);
+251:		ret = ebpf_loader_create_maps(bytes, header, handle->bundle, &maps);
+254:		ret = ebpf_loader_create_attachments(bytes, header, handle->bundle, maps);
+258:		sys_slist_append(&ebpf_loader_registry, &handle->registry_node);
+270:		if (handle->bundle != NULL) {
+271:			(void)ebpf_bundle_destroy(handle->bundle);
+274:		k_free(handle->name);
+287:		return -EINVAL;
+294:	(void)sys_slist_find_and_remove(&ebpf_loader_registry, &handle->registry_node);
+297:	k_mutex_lock(&handle->lock, K_FOREVER);
+298:	if (handle->bundle != NULL) {
+299:		ret = ebpf_bundle_destroy(handle->bundle);
+300:		handle->bundle = NULL;
+302:	k_mutex_unlock(&handle->lock);
+304:	k_free(handle->name);
+313:		return -EINVAL;
+318:	k_mutex_lock(&handle->lock, K_FOREVER);
+319:	if (handle->bundle == NULL) {
+320:		ret = -ENOENT;
+322:		ret = ebpf_bundle_enable(handle->bundle);
+324:	k_mutex_unlock(&handle->lock);
+332:		return -EINVAL;
+337:	k_mutex_lock(&handle->lock, K_FOREVER);
+338:	if (handle->bundle != NULL) {
+339:		ret = ebpf_bundle_disable(handle->bundle);
+341:	k_mutex_unlock(&handle->lock);
+350:		return -EINVAL;
+357:	k_mutex_lock(&handle->lock, K_FOREVER);
+359:	if (handle->bundle == NULL) {
+360:		ret = -ENOENT;
+364:	map = ebpf_bundle_find_map(handle->bundle, map_name);
+366:		ret = -ENOENT;
+371:		ret = -EMSGSIZE;
+377:		ret = -ENOENT;
+384:	k_mutex_unlock(&handle->lock);
+395:	return handle->name;
