@@ -1,0 +1,35 @@
+# Copyright (c) 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig MCUMGR_GRP_EBPF
+	bool "Zephyr eBPF management group"
+	depends on EBPF && EBPF_LOADER
+	select MCUMGR_SMP_CBOR_MIN_DECODING_LEVEL_2
+	select MCUMGR_SMP_CBOR_MIN_ENCODING_LEVEL_3 if ZCBOR_CANONICAL
+	help
+	  Enables MCUmgr commands for staged runtime bundle upload plus enable,
+	  disable, unload, and dump operations on Zephyr eBPF loader bundles.
+
+if MCUMGR_GRP_EBPF
+
+config MCUMGR_GRP_EBPF_UPLOAD_MAX_SIZE
+	int "Maximum staged eBPF bundle upload size"
+	default 8192
+	range 256 1048576
+	help
+	  Maximum runtime bundle size, in bytes, accepted through the MCUmgr
+	  eBPF load command.
+
+config MCUMGR_GRP_EBPF_MAP_READ_MAX_SIZE
+	int "Maximum map value size returned by the eBPF map-read command"
+	default 256
+	range 1 4096
+	help
+	  Maximum number of bytes the MCUmgr eBPF map-read command will return
+	  for one map value. Larger values are rejected to keep responses bounded.
+
+module = MCUMGR_GRP_EBPF
+module-str = mcumgr_grp_ebpf
+source "subsys/logging/Kconfig.template.log_config"
+
+endif

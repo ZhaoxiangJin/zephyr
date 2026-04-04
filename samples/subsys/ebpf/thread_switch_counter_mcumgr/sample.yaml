@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: Copyright 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+
+sample:
+  name: eBPF Thread Switch Counter over MCUmgr
+  description: >
+    Run a target application that generates thread-switch activity while the
+    Zephyr MCUmgr eBPF group loads runtime probes and reads their map values
+    remotely.
+
+common:
+  platform_allow:
+    - frdm_mcxa156
+  tags: ebpf loader tracing mcumgr uart
+  build_only: true
+
+tests:
+  sample.ebpf.thread_switch_counter_mcumgr:
+    integration_platforms:
+      - frdm_mcxa156
+    platform_allow:
+      - frdm_mcxa156
+    build_only: true
+    tags: ebpf loader tracing mcumgr uart

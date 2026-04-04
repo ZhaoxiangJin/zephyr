@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: Copyright 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+
+sample:
+  name: eBPF Thread Switch Counter
+  description: >
+    Build a restricted-C eBPF probe bundle on the host, embed it into the
+    application image, then count scheduler thread-switch events through the
+    runtime loader at run time.
+
+common:
+  platform_allow:
+    - native_sim
+    - qemu_x86
+  tags: ebpf loader tracing
+
+tests:
+  sample.ebpf.thread_switch_counter:
+    integration_platforms:
+      - qemu_x86
+    platform_allow:
+      - qemu_x86
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+        - 'Thread-switch counter sample complete\.'
+    tags: ebpf loader tracing

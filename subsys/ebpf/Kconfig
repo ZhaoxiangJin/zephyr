@@ -1,0 +1,132 @@
+# SPDX-FileCopyrightText: Copyright 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig EBPF
+	bool "eBPF (extended Berkeley Packet Filter) subsystem"
+	help
+	  Enable the eBPF subsystem for kernel observability.
+	  Provides a lightweight bytecode interpreter with backend-aware
+	  attach targets for runtime-programmable kernel instrumentation.
+
+if EBPF
+
+config EBPF_INIT_PRIORITY
+	int "eBPF core initialization priority"
+	default 50
+	help
+	  Initialization priority for the eBPF core subsystem (maps, runtime).
+	  This runs at POST_KERNEL level and must complete before any backend
+	  initialization so that maps and runtime state are ready.
+
+config EBPF_BACKEND_INIT_PRIORITY
+	int "eBPF backend initialization priority"
+	default 51
+	help
+	  Initialization priority for eBPF backends (PM notifier, etc.).
+	  This runs at POST_KERNEL level and must be numerically higher than
+	  EBPF_INIT_PRIORITY so that the core subsystem is ready first.
+
+config EBPF_STACK_SIZE
+	int "Per-program stack size (bytes)"
+	default 512
+	range 128 4096
+	help
+	  Size of the stack available to each eBPF program invocation.
+	  The VM context (stack + registers + PC) is allocated on the calling
+	  thread's kernel stack.  With the default value of 512 the total
+	  frame overhead is approximately 600 bytes.  Threads or ISRs that
+	  execute eBPF programs must have sufficient stack headroom to
+	  accommodate this allocation.  Increase the thread stack size
+	  accordingly when raising this value.
+
+config EBPF_MAX_PROG_INSNS
+	int "Maximum instructions per program"
+	default 4096
+	range 64 65536
+	help
+	  Maximum number of instructions allowed in a single eBPF program.
+	  Programs exceeding this limit will fail verification.
+
+config EBPF_MAX_INSNS_PER_RUN
+	int "Maximum instructions executed per invocation"
+	default 4096
+	range 256 65536
+	help
+	  Safety limit on the number of instructions executed in a single
+	  eBPF program run. Prevents infinite loops.
+
+config EBPF_MAX_ATTACHMENTS_PER_TARGET
+	int "Maximum enabled attachments per hook target"
+	default 8
+	range 1 64
+	help
+	  Maximum number of eBPF programs that may be enabled on one concrete
+	  attachment target at the same time.
+	  The target runtime keeps two immutable dispatch snapshots per target,
+	  each sized for this number of enabled attachments.
+	  Increase this if many programs must fan out from the same hook.
+
+config EBPF_LOADER
+	bool "Experimental runtime eBPF loader"
+	default y
+	select CRC
+	help
+	  Enable the experimental runtime loader for serialized eBPF probe
+	  objects. The loader can parse a small in-memory probe image,
+	  resolve stable hook names, instantiate runtime bundle-owned maps and
+	  attachments, and auto-unload the bundle after a configured TTL.
+
+config EBPF_LOADER_AUTH_ECDSA_P256
+	bool "Verify signed runtime bundles with ECDSA P-256"
+	depends on EBPF_LOADER
+	select PSA_CRYPTO
+	select PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY
+	select PSA_WANT_ALG_ECDSA
+	select PSA_WANT_ECC_SECP_R1_256
+	select PSA_WANT_ALG_SHA_256
+	help
+	  Enable verification of runtime bundle images authenticated with an
+	  ECDSA P-256 signature over a SHA-256 digest of the signed image
+	  region.
+
+config EBPF_LOADER_ECDSA_P256_PUBKEY_HEX
+	string "Pinned ECDSA P-256 public key"
+	depends on EBPF_LOADER_AUTH_ECDSA_P256
+	help
+	  Uncompressed SEC1 public key encoded as 130 hexadecimal characters.
+	  The first byte must be 04, followed by 32-byte X and Y coordinates.
+
+config EBPF_MAP_ARRAY
+	bool "Array map support"
+	default y
+	depends on EBPF
+	help
+	  Enable the array map type for eBPF programs.
+	  Array maps are always available as a basic requirement.
+
+config EBPF_TRACING
+	bool "eBPF tracing integration"
+	default y if TRACING_USER
+	depends on TRACING_USER
+	select INSTRUMENT_THREAD_SWITCHING
+	help
+	  Integrate eBPF programs with the Zephyr tracing subsystem.
+	  This enables attaching eBPF programs to tracing hooks such as
+	  context switches, ISR entry and exit, and idle entry and exit.
+	  The backend is implemented through Zephyr tracing user callbacks.
+	  This requires CONFIG_TRACING=y and CONFIG_TRACING_USER=y.
+
+config EBPF_PM
+	bool "eBPF PM notifier integration"
+	default y if PM
+	depends on PM
+	help
+	  Integrate eBPF programs with the Zephyr power-management notifier API.
+	  This enables attaching eBPF programs to PM state entry and exit events.
+
+module = EBPF
+module-str = ebpf
+module-help = Sets log level for eBPF subsystem
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # EBPF

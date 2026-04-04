@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1540 920" role="img" aria-labelledby="title desc">
+  <title id="title">PM residency profiler flow</title>
+  <desc id="desc">Scenario diagram for the PM residency sample, showing the two PM programs, the three runtime-owned maps, the changing idle windows, and the normal application-side reporting path.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#29455f" />
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#3a4e64" flood-opacity="0.08" />
+    </filter>
+    <style>
+      .bg { fill: #fcfdff; }
+      .frame { fill: none; stroke: #d7dee8; stroke-width: 1.5; }
+      .headline { fill: #17324a; font: 700 30px "Segoe UI", Arial, sans-serif; letter-spacing: 0.2px; }
+      .subheadline { fill: #5b7287; font: 15px "Segoe UI", Arial, sans-serif; }
+      .panel { stroke-width: 1.4; filter: url(#shadow); }
+      .panel-blue { fill: #f4f8ff; stroke: #c7d5ea; }
+      .panel-sand { fill: #fff9f0; stroke: #ddc79a; }
+      .panel-green { fill: #f4fbf4; stroke: #c6dcc3; }
+      .panel-rose { fill: #fff6f4; stroke: #e3c2bb; }
+      .panel-slate { fill: #f6f8fb; stroke: #ccd5df; }
+      .panel-divider { stroke: #dde5ee; stroke-width: 1; }
+      .panel-title { fill: #21384f; font: 600 18px "Segoe UI", Arial, sans-serif; }
+      .panel-subtitle { fill: #61788c; font: 14px "Segoe UI", Arial, sans-serif; }
+      .card { stroke-width: 1.5; filter: url(#shadow); }
+      .card-blue { fill: #ffffff; stroke: #7d9fc3; }
+      .card-sand { fill: #fffefb; stroke: #cba76f; }
+      .card-green { fill: #fdfffd; stroke: #92b08e; }
+      .card-rose { fill: #fffdfc; stroke: #d5988a; }
+      .card-slate { fill: #fbfcfe; stroke: #98a9bc; }
+      .card-title { fill: #1e3349; font: 600 19px "Segoe UI", Arial, sans-serif; }
+      .card-body { fill: #5a6f84; font: 13px "Segoe UI", Arial, sans-serif; }
+      .badge { stroke-width: 0; }
+      .badge-blue { fill: #e6f0ff; }
+      .badge-sand { fill: #f3ead8; }
+      .badge-green { fill: #e4f0e2; }
+      .badge-rose { fill: #f6e4e0; }
+      .badge-slate { fill: #e8edf3; }
+      .badge-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .badge-text-blue { fill: #416488; }
+      .badge-text-sand { fill: #7a6130; }
+      .badge-text-green { fill: #4d6b4b; }
+      .badge-text-rose { fill: #8a584c; }
+      .badge-text-slate { fill: #4c6077; }
+      .pill { stroke-width: 0; }
+      .pill-blue { fill: #dfeefe; }
+      .pill-sand { fill: #efe5d2; }
+      .pill-green { fill: #dfeedd; }
+      .pill-rose { fill: #f5e3de; }
+      .pill-slate { fill: #e8edf4; }
+      .pill-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .pill-text-blue { fill: #3c648a; }
+      .pill-text-sand { fill: #725a2c; }
+      .pill-text-green { fill: #4d6b4b; }
+      .pill-text-rose { fill: #875447; }
+      .pill-text-slate { fill: #4e637a; }
+      .label-bubble { stroke-width: 1; }
+      .label-bubble-blue { fill: #ffffff; stroke: #c9d9ed; }
+      .label-bubble-sand { fill: #fffefa; stroke: #dbc8a7; }
+      .label-bubble-green { fill: #ffffff; stroke: #c6dcc3; }
+      .label-bubble-rose { fill: #ffffff; stroke: #e4c8c1; }
+      .label-bubble-slate { fill: #ffffff; stroke: #d7dee8; }
+      .label-bubble-text { fill: #4e647a; font: 12px "Segoe UI", Arial, sans-serif; }
+      .note { stroke-width: 1.3; filter: url(#shadow); }
+      .note-blue { fill: #f8fbff; stroke: #c9d9ed; }
+      .note-sand { fill: #fffdf8; stroke: #decda8; }
+      .note-green { fill: #f8fcf7; stroke: #c8ddc6; }
+      .note-rose { fill: #fffaf8; stroke: #e6cbc4; }
+      .note-slate { fill: #fafbfd; stroke: #d7dee8; }
+      .note-title { fill: #22384d; font: 600 15px "Segoe UI", Arial, sans-serif; }
+      .note-body { fill: #5d7286; font: 13px "Segoe UI", Arial, sans-serif; }
+      .zone { fill: none; stroke-width: 1.8; stroke-dasharray: 10 8; }
+      .zone-blue { stroke: #81a6cd; }
+      .zone-sand { stroke: #c5a86a; }
+      .zone-green { stroke: #92b08e; }
+      .zone-rose { stroke: #d59b8e; }
+      .zone-slate { stroke: #9eafc1; }
+      .edge { stroke: #29455f; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+      .edge-dashed { stroke-dasharray: 8 7; }
+      .caption { fill: #5c7387; font: 14px "Segoe UI", Arial, sans-serif; }
+      
+    </style>
+    
+  </defs>
+  <rect class="bg" x="0" y="0" width="1540" height="920" rx="24" ry="24" />
+  <rect class="frame" x="12" y="12" width="1516" height="896" rx="20" ry="20" />
+  <rect class="panel panel-sand" x="44" y="148" width="330" height="322" rx="28" ry="28" />
+<line class="panel-divider" x1="44" y1="212" x2="374" y2="212" />
+<rect class="panel panel-blue" x="406" y="148" width="540" height="322" rx="28" ry="28" />
+<line class="panel-divider" x1="406" y1="212" x2="946" y2="212" />
+<rect class="panel panel-green" x="406" y="500" width="540" height="312" rx="28" ry="28" />
+<line class="panel-divider" x1="406" y1="564" x2="946" y2="564" />
+<rect class="panel panel-rose" x="978" y="148" width="518" height="720" rx="28" ry="28" />
+<line class="panel-divider" x1="978" y1="212" x2="1496" y2="212" />
+<path class="edge" d="M 209 340 L 209 364" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 336 410 L 372 410 Q 390 410 390 392 L 390 232 Q 390 214 408 214 L 759 214 Q 764 214 764 219 L 764 224" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 336 410 L 372 410 Q 390 410 390 428 L 390 462 Q 390 480 408 480 L 759 480 Q 764 480 764 475 L 764 470" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 598 284 L 642 280" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 598 418 L 642 414" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 764 336 L 764 339 Q 764 342 761 342 L 633 342 Q 615 342 615 360 L 615 522 Q 615 540 597 540 L 518 540 Q 500 540 500 558 L 500 620" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 792 336 L 792 342 Q 792 348 786 348 L 643 348 Q 625 348 625 366 L 625 552 Q 625 570 643 570 L 662 570 Q 680 570 680 588 L 680 620" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 764 470 L 764 475 Q 764 480 759 480 L 633 480 Q 615 480 615 498 L 615 537 Q 615 555 597 555 L 550 555 Q 532 555 532 573 L 532 620" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 810 470 L 810 568 Q 810 585 827 585 L 827 585 Q 844 585 844 602 L 844 620" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 1014 294 L 978 294 Q 960 294 960 276 L 960 148 Q 960 130 942 130 L 538 130 Q 520 130 520 148 L 520 236" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 758 671 L 759 671 Q 760 671 760 670 L 760 618 Q 760 600 778 600 L 942 600 Q 960 600 960 582 L 960 503 Q 960 485 978 485 L 1014 485" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 918 671 L 942 671 Q 960 671 960 653 L 960 438 Q 960 420 978 420 L 1352 420 Q 1359 420 1359 427 L 1359 434" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 1228 485 L 1260 492" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 1336 788 L 1492 788 Q 1510 788 1510 770 L 1510 148 Q 1510 130 1492 130 L 227 130 Q 209 130 209 148 L 209 364" fill="none" marker-end="url(#arrow)" />
+<rect class="card card-sand" x="82" y="244" width="254" height="96" rx="20" ry="20" />
+<rect class="badge badge-sand" x="98" y="258" width="120.30000000000001" height="24" rx="12" ry="12" />
+<rect class="card card-sand" x="82" y="364" width="254" height="92" rx="20" ry="20" />
+<rect class="badge badge-sand" x="98" y="378" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="442" y="236" width="156" height="96" rx="20" ry="20" />
+<rect class="badge badge-blue" x="458" y="250" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="642" y="224" width="244" height="112" rx="20" ry="20" />
+<rect class="badge badge-blue" x="658" y="238" width="96.7" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="442" y="370" width="156" height="96" rx="20" ry="20" />
+<rect class="badge badge-blue" x="458" y="384" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="642" y="358" width="244" height="112" rx="20" ry="20" />
+<rect class="badge badge-blue" x="658" y="372" width="90.80000000000001" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="442" y="620" width="148" height="102" rx="20" ry="20" />
+<rect class="badge badge-green" x="458" y="634" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="602" y="620" width="156" height="102" rx="20" ry="20" />
+<rect class="badge badge-green" x="618" y="634" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="770" y="620" width="148" height="102" rx="20" ry="20" />
+<rect class="badge badge-green" x="786" y="634" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-rose" x="1014" y="236" width="444" height="116" rx="20" ry="20" />
+<rect class="badge badge-rose" x="1030" y="250" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-rose" x="1014" y="434" width="214" height="102" rx="20" ry="20" />
+<rect class="badge badge-rose" x="1030" y="448" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-rose" x="1260" y="434" width="198" height="116" rx="20" ry="20" />
+<rect class="badge badge-rose" x="1276" y="448" width="102.60000000000001" height="24" rx="12" ry="12" />
+<rect class="note note-slate" x="1014" y="570" width="444" height="160" rx="20" ry="20" />
+<rect class="card card-rose" x="1136" y="742" width="200" height="92" rx="20" ry="20" />
+<rect class="badge badge-rose" x="1152" y="756" width="86" height="24" rx="12" ry="12" />
+<text class="headline" x="52" y="82">PM residency profiler: entry, exit, and reporting flow</text>
+<text class="subheadline" x="52" y="114" text-anchor="start"><tspan x="52" dy="0">The runtime-loaded PM bundle carries two programs: pm_entry timestamps each state entry and counts it, while pm_exit accumulates elapsed residency for</tspan><tspan x="52" dy="18">the state being exited.</tspan></text>
+<text class="panel-title" x="66" y="186" text-anchor="start"><tspan x="66" dy="0">Bundle preparation</tspan></text>
+<text class="panel-subtitle" x="66" y="236" text-anchor="start"><tspan x="66" dy="0">One restricted-C probe pair becomes one</tspan><tspan x="66" dy="17">embedded runtime bundle that the sample</tspan><tspan x="66" dy="17">loads and enables at startup.</tspan></text>
+<text class="panel-title" x="428" y="186" text-anchor="start"><tspan x="428" dy="0">PM backend event handling</tspan></text>
+<text class="panel-subtitle" x="428" y="236" text-anchor="start"><tspan x="428" dy="0">The PM backend translates entry and exit callbacks into ebpf_ctx_pm</tspan><tspan x="428" dy="17">sessions. Each eBPF program updates a different piece of shared</tspan><tspan x="428" dy="17">measurement state.</tspan></text>
+<text class="panel-title" x="428" y="538" text-anchor="start"><tspan x="428" dy="0">Runtime-owned measurement maps</tspan></text>
+<text class="panel-subtitle" x="428" y="588" text-anchor="start"><tspan x="428" dy="0">The probe keeps one timestamp map for internal bookkeeping and</tspan><tspan x="428" dy="17">exposes per-state counts and accumulated residency through normal map</tspan><tspan x="428" dy="17">reads.</tspan></text>
+<text class="panel-title" x="1000" y="186" text-anchor="start"><tspan x="1000" dy="0">Application reporting loop</tspan></text>
+<text class="panel-subtitle" x="1000" y="236" text-anchor="start"><tspan x="1000" dy="0">The sample changes its worker sleep window over time, then reads</tspan><tspan x="1000" dy="17">entry_count_map and residency_map and prints per-state totals for</tspan><tspan x="1000" dy="17">each interval.</tspan></text>
+<text class="badge-text badge-text-sand" x="158.15" y="274" text-anchor="middle"><tspan x="158.15" dy="0">host-built bundle</tspan></text>
+<text class="card-title" x="209" y="302" text-anchor="middle"><tspan x="209" dy="0">pm_entry + pm_exit</tspan></text>
+<text class="card-body" x="209" y="331" text-anchor="middle"><tspan x="209" dy="0">restricted-C PM probe pair</tspan><tspan x="209" dy="16">west ebpf build -&gt;</tspan><tspan x="209" dy="16">pm_residency.bundle</tspan></text>
+<text class="badge-text badge-text-sand" x="141" y="394" text-anchor="middle"><tspan x="141" dy="0">startup</tspan></text>
+<text class="card-title" x="209" y="422" text-anchor="middle"><tspan x="209" dy="0">ebpf_loader_load + enable</tspan></text>
+<text class="card-body" x="209" y="451" text-anchor="middle"><tspan x="209" dy="0">pm_residency_probe</tspan><tspan x="209" dy="16">runtime-loaded PM probe</tspan><tspan x="209" dy="16">enabled</tspan></text>
+<text class="badge-text badge-text-blue" x="501" y="266" text-anchor="middle"><tspan x="501" dy="0">entry event</tspan></text>
+<text class="card-title" x="520" y="294" text-anchor="middle"><tspan x="520" dy="0">pm/state_entry</tspan></text>
+<text class="card-body" x="520" y="323" text-anchor="middle"><tspan x="520" dy="0">PM notifier</tspan><tspan x="520" dy="16">callback</tspan><tspan x="520" dy="16">one concrete</tspan><tspan x="520" dy="16">state</tspan></text>
+<text class="badge-text badge-text-blue" x="706.35" y="254" text-anchor="middle"><tspan x="706.35" dy="0">entry program</tspan></text>
+<text class="card-title" x="764" y="282" text-anchor="middle"><tspan x="764" dy="0">pm_entry()</tspan></text>
+<text class="card-body" x="764" y="311" text-anchor="middle"><tspan x="764" dy="0">record entry_ts_map[state] =</tspan><tspan x="764" dy="16">now</tspan><tspan x="764" dy="16">increment</tspan><tspan x="764" dy="16">entry_count_map[state]</tspan></text>
+<text class="badge-text badge-text-blue" x="501" y="400" text-anchor="middle"><tspan x="501" dy="0">exit event</tspan></text>
+<text class="card-title" x="520" y="428" text-anchor="middle"><tspan x="520" dy="0">pm/state_exit</tspan></text>
+<text class="card-body" x="520" y="457" text-anchor="middle"><tspan x="520" dy="0">PM notifier</tspan><tspan x="520" dy="16">callback</tspan><tspan x="520" dy="16">same state key</tspan><tspan x="520" dy="16">on exit</tspan></text>
+<text class="badge-text badge-text-blue" x="703.4" y="388" text-anchor="middle"><tspan x="703.4" dy="0">exit program</tspan></text>
+<text class="card-title" x="764" y="416" text-anchor="middle"><tspan x="764" dy="0">pm_exit()</tspan></text>
+<text class="card-body" x="764" y="445" text-anchor="middle"><tspan x="764" dy="0">load entry_ts_map[state]</tspan><tspan x="764" dy="16">add elapsed ns into</tspan><tspan x="764" dy="16">residency_map[state]</tspan></text>
+<text class="badge-text badge-text-green" x="501" y="650" text-anchor="middle"><tspan x="501" dy="0">runtime map</tspan></text>
+<text class="card-title" x="516" y="678" text-anchor="middle"><tspan x="516" dy="0">entry_ts_map</tspan></text>
+<text class="card-body" x="516" y="707" text-anchor="middle"><tspan x="516" dy="0">internal start</tspan><tspan x="516" dy="16">timestamp</tspan><tspan x="516" dy="16">per PM state</tspan></text>
+<text class="badge-text badge-text-green" x="661" y="650" text-anchor="middle"><tspan x="661" dy="0">runtime map</tspan></text>
+<text class="card-title" x="680" y="678" text-anchor="middle"><tspan x="680" dy="0">entry_count_map</tspan></text>
+<text class="card-body" x="680" y="707" text-anchor="middle"><tspan x="680" dy="0">entry count per</tspan><tspan x="680" dy="16">state</tspan></text>
+<text class="badge-text badge-text-green" x="829" y="650" text-anchor="middle"><tspan x="829" dy="0">runtime map</tspan></text>
+<text class="card-title" x="844" y="678" text-anchor="middle"><tspan x="844" dy="0">residency_map</tspan></text>
+<text class="card-body" x="844" y="707" text-anchor="middle"><tspan x="844" dy="0">accumulated ns</tspan><tspan x="844" dy="16">per state</tspan></text>
+<text class="badge-text badge-text-rose" x="1073" y="266" text-anchor="middle"><tspan x="1073" dy="0">stimulus</tspan></text>
+<text class="card-title" x="1236" y="294" text-anchor="middle"><tspan x="1236" dy="0">phase loop</tspan></text>
+<text class="card-body" x="1236" y="323" text-anchor="middle"><tspan x="1236" dy="0">10 ms -&gt; 50 ms -&gt; 200 ms -&gt; 1000 ms</tspan><tspan x="1236" dy="16">longer idle windows let PM policy choose deeper states</tspan></text>
+<text class="badge-text badge-text-rose" x="1073" y="464" text-anchor="middle"><tspan x="1073" dy="0">normal code</tspan></text>
+<text class="card-title" x="1121" y="492" text-anchor="middle"><tspan x="1121" dy="0">map lookups</tspan></text>
+<text class="card-body" x="1121" y="521" text-anchor="middle"><tspan x="1121" dy="0">read entry_count_map</tspan><tspan x="1121" dy="16">read residency_map</tspan></text>
+<text class="badge-text badge-text-rose" x="1327.3" y="464" text-anchor="middle"><tspan x="1327.3" dy="0">console output</tspan></text>
+<text class="card-title" x="1359" y="492" text-anchor="middle"><tspan x="1359" dy="0">phase report</tspan></text>
+<text class="card-body" x="1359" y="521" text-anchor="middle"><tspan x="1359" dy="0">entries, residency ms</tspan><tspan x="1359" dy="16">interval percentage</tspan><tspan x="1359" dy="16">per state</tspan></text>
+<text class="note-title" x="1032" y="600" text-anchor="start"><tspan x="1032" dy="0">What the sample proves</tspan></text>
+<text class="note-body" x="1032" y="628" text-anchor="start"><tspan x="1032" dy="0">The probe's own timestamp map stays internal, while normal</tspan><tspan x="1032" dy="16">application code reads the exported count and residency</tspan><tspan x="1032" dy="16">maps.</tspan><tspan x="1032" dy="16">As the worker sleep interval grows, the printed report</tspan><tspan x="1032" dy="16">shows whether deeper PM states are actually reached.</tspan></text>
+<text class="badge-text badge-text-rose" x="1195" y="772" text-anchor="middle"><tspan x="1195" dy="0">teardown</tspan></text>
+<text class="card-title" x="1236" y="800" text-anchor="middle"><tspan x="1236" dy="0">disable + unload</tspan></text>
+<text class="card-body" x="1236" y="829" text-anchor="middle"><tspan x="1236" dy="0">remove PM session</tspan><tspan x="1236" dy="16">destroy runtime-owned</tspan><tspan x="1236" dy="16">state coherently</tspan></text>
+<text class="caption" x="770" y="880" text-anchor="middle"><tspan x="770" dy="0">This diagram is the PM sample's key narrative: one runtime bundle listens on PM entry and exit, records per-state timing, and lets normal code report what the platform PM policy really did.</tspan></text>
+<rect class="label-bubble label-bubble-sand" x="313" y="470" width="158" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-rose" x="1032" y="364" width="176" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-rose" x="1236" y="384" width="208" height="28" rx="14" ry="14" />
+<text class="label-bubble-text" x="392" y="489" text-anchor="middle"><tspan x="392" dy="0">embed runtime bundle</tspan></text>
+<text class="label-bubble-text" x="1120" y="383" text-anchor="middle"><tspan x="1120" dy="0">phase changes idle window</tspan></text>
+<text class="label-bubble-text" x="1340" y="403" text-anchor="middle"><tspan x="1340" dy="0">entries and residency per phase</tspan></text>
+</svg>

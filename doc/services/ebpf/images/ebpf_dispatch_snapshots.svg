@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1480 800" role="img" aria-labelledby="title desc">
+  <title id="title">Dispatch runtime snapshot publication</title>
+  <desc id="desc">Diagram showing hot-path readers using an active snapshot while the control path prepares and atomically publishes an alternate snapshot.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#29455f" />
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#3a4e64" flood-opacity="0.08" />
+    </filter>
+    <style>
+      .bg { fill: #fcfdff; }
+      .frame { fill: none; stroke: #d7dee8; stroke-width: 1.5; }
+      .headline { fill: #17324a; font: 700 30px "Segoe UI", Arial, sans-serif; letter-spacing: 0.2px; }
+      .subheadline { fill: #5b7287; font: 15px "Segoe UI", Arial, sans-serif; }
+      .panel { stroke-width: 1.4; filter: url(#shadow); }
+      .panel-blue { fill: #f4f8ff; stroke: #c7d5ea; }
+      .panel-sand { fill: #fff9f0; stroke: #ddc79a; }
+      .panel-green { fill: #f4fbf4; stroke: #c6dcc3; }
+      .panel-rose { fill: #fff6f4; stroke: #e3c2bb; }
+      .panel-slate { fill: #f6f8fb; stroke: #ccd5df; }
+      .panel-divider { stroke: #dde5ee; stroke-width: 1; }
+      .panel-title { fill: #21384f; font: 600 18px "Segoe UI", Arial, sans-serif; }
+      .panel-subtitle { fill: #61788c; font: 14px "Segoe UI", Arial, sans-serif; }
+      .card { stroke-width: 1.5; filter: url(#shadow); }
+      .card-blue { fill: #ffffff; stroke: #7d9fc3; }
+      .card-sand { fill: #fffefb; stroke: #cba76f; }
+      .card-green { fill: #fdfffd; stroke: #92b08e; }
+      .card-rose { fill: #fffdfc; stroke: #d5988a; }
+      .card-slate { fill: #fbfcfe; stroke: #98a9bc; }
+      .card-title { fill: #1e3349; font: 600 19px "Segoe UI", Arial, sans-serif; }
+      .card-body { fill: #5a6f84; font: 13px "Segoe UI", Arial, sans-serif; }
+      .badge { stroke-width: 0; }
+      .badge-blue { fill: #e6f0ff; }
+      .badge-sand { fill: #f3ead8; }
+      .badge-green { fill: #e4f0e2; }
+      .badge-rose { fill: #f6e4e0; }
+      .badge-slate { fill: #e8edf3; }
+      .badge-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .badge-text-blue { fill: #416488; }
+      .badge-text-sand { fill: #7a6130; }
+      .badge-text-green { fill: #4d6b4b; }
+      .badge-text-rose { fill: #8a584c; }
+      .badge-text-slate { fill: #4c6077; }
+      .pill { stroke-width: 0; }
+      .pill-blue { fill: #dfeefe; }
+      .pill-sand { fill: #efe5d2; }
+      .pill-green { fill: #dfeedd; }
+      .pill-rose { fill: #f5e3de; }
+      .pill-slate { fill: #e8edf4; }
+      .pill-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .pill-text-blue { fill: #3c648a; }
+      .pill-text-sand { fill: #725a2c; }
+      .pill-text-green { fill: #4d6b4b; }
+      .pill-text-rose { fill: #875447; }
+      .pill-text-slate { fill: #4e637a; }
+      .label-bubble { stroke-width: 1; }
+      .label-bubble-blue { fill: #ffffff; stroke: #c9d9ed; }
+      .label-bubble-sand { fill: #fffefa; stroke: #dbc8a7; }
+      .label-bubble-green { fill: #ffffff; stroke: #c6dcc3; }
+      .label-bubble-rose { fill: #ffffff; stroke: #e4c8c1; }
+      .label-bubble-slate { fill: #ffffff; stroke: #d7dee8; }
+      .label-bubble-text { fill: #4e647a; font: 12px "Segoe UI", Arial, sans-serif; }
+      .note { stroke-width: 1.3; filter: url(#shadow); }
+      .note-blue { fill: #f8fbff; stroke: #c9d9ed; }
+      .note-sand { fill: #fffdf8; stroke: #decda8; }
+      .note-green { fill: #f8fcf7; stroke: #c8ddc6; }
+      .note-rose { fill: #fffaf8; stroke: #e6cbc4; }
+      .note-slate { fill: #fafbfd; stroke: #d7dee8; }
+      .note-title { fill: #22384d; font: 600 15px "Segoe UI", Arial, sans-serif; }
+      .note-body { fill: #5d7286; font: 13px "Segoe UI", Arial, sans-serif; }
+      .zone { fill: none; stroke-width: 1.8; stroke-dasharray: 10 8; }
+      .zone-blue { stroke: #81a6cd; }
+      .zone-sand { stroke: #c5a86a; }
+      .zone-green { stroke: #92b08e; }
+      .zone-rose { stroke: #d59b8e; }
+      .zone-slate { stroke: #9eafc1; }
+      .edge { stroke: #29455f; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+      .edge-dashed { stroke-dasharray: 8 7; }
+      .caption { fill: #5c7387; font: 14px "Segoe UI", Arial, sans-serif; }
+      
+    </style>
+    
+  </defs>
+  <rect class="bg" x="0" y="0" width="1480" height="800" rx="24" ry="24" />
+  <rect class="frame" x="12" y="12" width="1456" height="776" rx="20" ry="20" />
+  <rect class="panel panel-green" x="48" y="170" width="1384" height="242" rx="28" ry="28" />
+<line class="panel-divider" x1="48" y1="234" x2="1432" y2="234" />
+<rect class="panel panel-blue" x="48" y="442" width="1384" height="304" rx="28" ry="28" />
+<line class="panel-divider" x1="48" y1="506" x2="1432" y2="506" />
+<rect class="zone zone-slate" x="708" y="206" width="342" height="490" rx="24" ry="24" />
+<rect class="pill pill-slate" x="726" y="190" width="234" height="28" rx="14" ry="14" />
+<path class="edge" d="M 290 300 L 428 300" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 642 300 L 748 296" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 1006 296 L 1134 295" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 308 602 L 566 606" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 695 536 L 695 488 Q 695 470 677 470 L 553 470 Q 535 470 535 452 L 535 346" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 1006 334 L 1042 334 Q 1060 334 1060 352 L 1060 591 Q 1060 606 1075 606 L 1090 606" fill="none" marker-end="url(#arrow)" />
+<rect class="card card-green" x="94" y="254" width="196" height="92" rx="20" ry="20" />
+<rect class="badge badge-green" x="110" y="268" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="428" y="254" width="214" height="92" rx="20" ry="20" />
+<rect class="badge badge-green" x="444" y="268" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="748" y="226" width="258" height="140" rx="20" ry="20" />
+<rect class="badge badge-green" x="764" y="240" width="96.7" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="1134" y="244" width="220" height="102" rx="20" ry="20" />
+<rect class="badge badge-green" x="1150" y="258" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="94" y="548" width="214" height="108" rx="20" ry="20" />
+<rect class="badge badge-blue" x="110" y="562" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="566" y="536" width="258" height="140" rx="20" ry="20" />
+<rect class="badge badge-blue" x="582" y="550" width="96.7" height="24" rx="12" ry="12" />
+<rect class="card card-slate" x="1090" y="536" width="248" height="140" rx="20" ry="20" />
+<rect class="badge badge-slate" x="1106" y="550" width="86" height="24" rx="12" ry="12" />
+<rect class="note note-rose" x="326" y="520" width="196" height="160" rx="20" ry="20" />
+<rect class="note note-blue" x="860" y="560" width="192" height="176" rx="20" ry="20" />
+<text class="headline" x="52" y="78">Dispatch runtime snapshot publication</text>
+<text class="subheadline" x="52" y="110" text-anchor="start"><tspan x="52" dy="0">The event path reads one immutable snapshot while the control path prepares the alternate buffer. Publication is a pointer swap, not an</tspan><tspan x="52" dy="18">in-place edit.</tspan></text>
+<text class="panel-title" x="70" y="208" text-anchor="start"><tspan x="70" dy="0">Hot event path</tspan></text>
+<text class="panel-subtitle" x="70" y="258" text-anchor="start"><tspan x="70" dy="0">Readers stay short: capture the current pointer, increment reader count, iterate the compact attachment list, and execute matching programs.</tspan></text>
+<text class="panel-title" x="70" y="480" text-anchor="start"><tspan x="70" dy="0">Control-plane update path</tspan></text>
+<text class="panel-subtitle" x="70" y="530" text-anchor="start"><tspan x="70" dy="0">Enable, disable, and unload operations build the next snapshot off-path, then publish it atomically when ready.</tspan></text>
+<text class="pill-text pill-text-slate" x="843" y="209" text-anchor="middle"><tspan x="843" dy="0">two preallocated buffers per target</tspan></text>
+<text class="badge-text badge-text-green" x="153" y="284" text-anchor="middle"><tspan x="153" dy="0">reader</tspan></text>
+<text class="card-title" x="192" y="312" text-anchor="middle"><tspan x="192" dy="0">Backend event</tspan></text>
+<text class="card-body" x="192" y="341" text-anchor="middle"><tspan x="192" dy="0">target + typed ctx</tspan><tspan x="192" dy="16">synchronous callback</tspan></text>
+<text class="badge-text badge-text-green" x="487" y="284" text-anchor="middle"><tspan x="487" dy="0">reader</tspan></text>
+<text class="card-title" x="535" y="312" text-anchor="middle"><tspan x="535" dy="0">current_snapshot</tspan></text>
+<text class="card-body" x="535" y="341" text-anchor="middle"><tspan x="535" dy="0">atomic pointer</tspan><tspan x="535" dy="16">one target at a time</tspan></text>
+<text class="badge-text badge-text-green" x="812.35" y="256" text-anchor="middle"><tspan x="812.35" dy="0">buffer A or B</tspan></text>
+<text class="card-title" x="877" y="284" text-anchor="middle"><tspan x="877" dy="0">Active snapshot</tspan></text>
+<text class="card-body" x="877" y="313" text-anchor="middle"><tspan x="877" dy="0">attachments[]</tspan><tspan x="877" dy="16">reader count</tspan><tspan x="877" dy="16">visible to the hot path</tspan></text>
+<text class="badge-text badge-text-green" x="1193" y="274" text-anchor="middle"><tspan x="1193" dy="0">execution</tspan></text>
+<text class="card-title" x="1244" y="302" text-anchor="middle"><tspan x="1244" dy="0">VM fan-out</tspan></text>
+<text class="card-body" x="1244" y="331" text-anchor="middle"><tspan x="1244" dy="0">one invocation per</tspan><tspan x="1244" dy="16">enabled entry</tspan><tspan x="1244" dy="16">fresh stack and registers</tspan></text>
+<text class="badge-text badge-text-blue" x="153" y="578" text-anchor="middle"><tspan x="153" dy="0">writer</tspan></text>
+<text class="card-title" x="201" y="606" text-anchor="middle"><tspan x="201" dy="0">Control update</tspan></text>
+<text class="card-body" x="201" y="635" text-anchor="middle"><tspan x="201" dy="0">lock target</tspan><tspan x="201" dy="16">copy active state into</tspan><tspan x="201" dy="16">alternate buffer</tspan></text>
+<text class="badge-text badge-text-blue" x="630.35" y="566" text-anchor="middle"><tspan x="630.35" dy="0">buffer A or B</tspan></text>
+<text class="card-title" x="695" y="594" text-anchor="middle"><tspan x="695" dy="0">Alternate snapshot</tspan></text>
+<text class="card-body" x="695" y="623" text-anchor="middle"><tspan x="695" dy="0">edit attachment array</tspan><tspan x="695" dy="16">prepare next published view</tspan></text>
+<text class="badge-text badge-text-slate" x="1149" y="566" text-anchor="middle"><tspan x="1149" dy="0">drain</tspan></text>
+<text class="card-title" x="1214" y="594" text-anchor="middle"><tspan x="1214" dy="0">Retired snapshot</tspan></text>
+<text class="card-body" x="1214" y="623" text-anchor="middle"><tspan x="1214" dy="0">old reader-visible state</tspan><tspan x="1214" dy="16">wait only when quiescence</tspan><tspan x="1214" dy="16">matters</tspan></text>
+<text class="note-title" x="344" y="550" text-anchor="start"><tspan x="344" dy="0">Why not edit in place?</tspan></text>
+<text class="note-body" x="344" y="578" text-anchor="start"><tspan x="344" dy="0">Readers would observe</tspan><tspan x="344" dy="16">half-written state and</tspan><tspan x="344" dy="16">race enable or unload.</tspan><tspan x="344" dy="16">Snapshots keep event</tspan><tspan x="344" dy="16">delivery deterministic.</tspan></text>
+<text class="note-title" x="878" y="590" text-anchor="start"><tspan x="878" dy="0">Publish step</tspan></text>
+<text class="note-body" x="878" y="618" text-anchor="start"><tspan x="878" dy="0">A single atomic</tspan><tspan x="878" dy="16">pointer swap makes the</tspan><tspan x="878" dy="16">next snapshot visible.</tspan><tspan x="878" dy="16">Readers already in</tspan><tspan x="878" dy="16">flight keep using the</tspan><tspan x="878" dy="16">old one.</tspan></text>
+<text class="caption" x="740" y="756" text-anchor="middle"><tspan x="740" dy="0">This is the core hot-path guarantee: readers see a compact immutable list, writers prepare the next list somewhere else.</tspan></text>
+<rect class="label-bubble label-bubble-green" x="297" y="286" width="126" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-green" x="559" y="376" width="142" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-blue" x="529" y="682" width="118" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-blue" x="581" y="414" width="126" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-slate" x="1106" y="440" width="164" height="28" rx="14" ry="14" />
+<text class="label-bubble-text" x="360" y="305" text-anchor="middle"><tspan x="360" dy="0">capture pointer</tspan></text>
+<text class="label-bubble-text" x="630" y="395" text-anchor="middle"><tspan x="630" dy="0">reader-visible state</tspan></text>
+<text class="label-bubble-text" x="588" y="701" text-anchor="middle"><tspan x="588" dy="0">copy then edit</tspan></text>
+<text class="label-bubble-text" x="644" y="433" text-anchor="middle"><tspan x="644" dy="0">atomic publish</tspan></text>
+<text class="label-bubble-text" x="1188" y="459" text-anchor="middle"><tspan x="1188" dy="0">sync disable waits here</tspan></text>
+</svg>

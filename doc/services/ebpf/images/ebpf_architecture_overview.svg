@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1610 820" role="img" aria-labelledby="title desc">
+  <title id="title">Zephyr eBPF architecture overview</title>
+  <desc id="desc">Slide-friendly architecture diagram showing bundle authoring, control surfaces, common runtime core, native event sources, and downstream consumers.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#29455f" />
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#3a4e64" flood-opacity="0.08" />
+    </filter>
+    <style>
+      .bg { fill: #fcfdff; }
+      .frame { fill: none; stroke: #d7dee8; stroke-width: 1.5; }
+      .headline { fill: #17324a; font: 700 30px "Segoe UI", Arial, sans-serif; letter-spacing: 0.2px; }
+      .subheadline { fill: #5b7287; font: 15px "Segoe UI", Arial, sans-serif; }
+      .panel { stroke-width: 1.4; filter: url(#shadow); }
+      .panel-blue { fill: #f4f8ff; stroke: #c7d5ea; }
+      .panel-sand { fill: #fff9f0; stroke: #ddc79a; }
+      .panel-green { fill: #f4fbf4; stroke: #c6dcc3; }
+      .panel-rose { fill: #fff6f4; stroke: #e3c2bb; }
+      .panel-slate { fill: #f6f8fb; stroke: #ccd5df; }
+      .panel-divider { stroke: #dde5ee; stroke-width: 1; }
+      .panel-title { fill: #21384f; font: 600 18px "Segoe UI", Arial, sans-serif; }
+      .panel-subtitle { fill: #61788c; font: 14px "Segoe UI", Arial, sans-serif; }
+      .card { stroke-width: 1.5; filter: url(#shadow); }
+      .card-blue { fill: #ffffff; stroke: #7d9fc3; }
+      .card-sand { fill: #fffefb; stroke: #cba76f; }
+      .card-green { fill: #fdfffd; stroke: #92b08e; }
+      .card-rose { fill: #fffdfc; stroke: #d5988a; }
+      .card-slate { fill: #fbfcfe; stroke: #98a9bc; }
+      .card-title { fill: #1e3349; font: 600 19px "Segoe UI", Arial, sans-serif; }
+      .card-body { fill: #5a6f84; font: 13px "Segoe UI", Arial, sans-serif; }
+      .badge { stroke-width: 0; }
+      .badge-blue { fill: #e6f0ff; }
+      .badge-sand { fill: #f3ead8; }
+      .badge-green { fill: #e4f0e2; }
+      .badge-rose { fill: #f6e4e0; }
+      .badge-slate { fill: #e8edf3; }
+      .badge-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .badge-text-blue { fill: #416488; }
+      .badge-text-sand { fill: #7a6130; }
+      .badge-text-green { fill: #4d6b4b; }
+      .badge-text-rose { fill: #8a584c; }
+      .badge-text-slate { fill: #4c6077; }
+      .pill { stroke-width: 0; }
+      .pill-blue { fill: #dfeefe; }
+      .pill-sand { fill: #efe5d2; }
+      .pill-green { fill: #dfeedd; }
+      .pill-rose { fill: #f5e3de; }
+      .pill-slate { fill: #e8edf4; }
+      .pill-text { font: 600 11px "Segoe UI", Arial, sans-serif; letter-spacing: 0.7px; }
+      .pill-text-blue { fill: #3c648a; }
+      .pill-text-sand { fill: #725a2c; }
+      .pill-text-green { fill: #4d6b4b; }
+      .pill-text-rose { fill: #875447; }
+      .pill-text-slate { fill: #4e637a; }
+      .label-bubble { stroke-width: 1; }
+      .label-bubble-blue { fill: #ffffff; stroke: #c9d9ed; }
+      .label-bubble-sand { fill: #fffefa; stroke: #dbc8a7; }
+      .label-bubble-green { fill: #ffffff; stroke: #c6dcc3; }
+      .label-bubble-rose { fill: #ffffff; stroke: #e4c8c1; }
+      .label-bubble-slate { fill: #ffffff; stroke: #d7dee8; }
+      .label-bubble-text { fill: #4e647a; font: 12px "Segoe UI", Arial, sans-serif; }
+      .note { stroke-width: 1.3; filter: url(#shadow); }
+      .note-blue { fill: #f8fbff; stroke: #c9d9ed; }
+      .note-sand { fill: #fffdf8; stroke: #decda8; }
+      .note-green { fill: #f8fcf7; stroke: #c8ddc6; }
+      .note-rose { fill: #fffaf8; stroke: #e6cbc4; }
+      .note-slate { fill: #fafbfd; stroke: #d7dee8; }
+      .note-title { fill: #22384d; font: 600 15px "Segoe UI", Arial, sans-serif; }
+      .note-body { fill: #5d7286; font: 13px "Segoe UI", Arial, sans-serif; }
+      .zone { fill: none; stroke-width: 1.8; stroke-dasharray: 10 8; }
+      .zone-blue { stroke: #81a6cd; }
+      .zone-sand { stroke: #c5a86a; }
+      .zone-green { stroke: #92b08e; }
+      .zone-rose { stroke: #d59b8e; }
+      .zone-slate { stroke: #9eafc1; }
+      .edge { stroke: #29455f; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+      .edge-dashed { stroke-dasharray: 8 7; }
+      .caption { fill: #5c7387; font: 14px "Segoe UI", Arial, sans-serif; }
+      
+    </style>
+    
+  </defs>
+  <rect class="bg" x="0" y="0" width="1610" height="820" rx="24" ry="24" />
+  <rect class="frame" x="12" y="12" width="1586" height="796" rx="20" ry="20" />
+  <rect class="panel panel-sand" x="44" y="126" width="322" height="280" rx="28" ry="28" />
+<line class="panel-divider" x1="44" y1="190" x2="366" y2="190" />
+<rect class="panel panel-green" x="44" y="438" width="322" height="338" rx="28" ry="28" />
+<line class="panel-divider" x1="44" y1="502" x2="366" y2="502" />
+<rect class="panel panel-blue" x="406" y="126" width="854" height="650" rx="28" ry="28" />
+<line class="panel-divider" x1="406" y1="190" x2="1260" y2="190" />
+<rect class="panel panel-slate" x="1298" y="126" width="268" height="290" rx="28" ry="28" />
+<line class="panel-divider" x1="1298" y1="190" x2="1566" y2="190" />
+<rect class="panel panel-rose" x="1298" y="448" width="268" height="328" rx="28" ry="28" />
+<line class="panel-divider" x1="1298" y1="512" x2="1566" y2="512" />
+<path class="edge" d="M 205 300 L 205 312" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 332 355 L 366 355 Q 384 355 384 337 L 384 290 Q 384 272 402 272 L 686 272" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 1540 257 L 1552 257 Q 1564 257 1564 245 L 1564 192 Q 1564 174 1546 174 L 814 174 Q 796 174 796 192 L 796 214" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 1324 257 L 1286 257 Q 1268 257 1268 239 L 1268 218 Q 1268 200 1250 200 L 847 200 Q 840 200 840 207 L 840 214" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 1324 361 L 1286 361 Q 1268 361 1268 343 L 1268 224 Q 1268 206 1250 206 L 874 206 Q 870 206 870 210 L 870 214" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 686 272 L 648 272" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 906 300 L 946 272" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 547 318 L 547 404" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 1083 330 L 1083 350 Q 1083 368 1065 368 L 575 368 Q 557 368 557 386 L 557 404" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 557 528 L 557 590" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 668 645 L 679 645 Q 690 645 690 634 L 690 477 Q 690 466 679 466 L 668 466" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 668 466 L 714 466" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 332 577 L 370 577 Q 388 577 388 559 L 388 472 Q 388 454 406 454 L 714 454" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 332 699 L 370 699 Q 388 699 388 681 L 388 528 Q 388 510 406 510 L 714 510" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 836 528 L 836 590" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 902 645 L 946 628" fill="none" marker-end="url(#arrow)" />
+<path class="edge" d="M 1220 628 L 1252 628 Q 1270 628 1270 646 L 1270 673 Q 1270 691 1288 691 L 1324 691" fill="none" marker-end="url(#arrow)" />
+<path class="edge edge-dashed" d="M 1220 600 L 1260.5 600 Q 1270 600 1270 590.5 L 1270 590.5 Q 1270 581 1279.5 581 L 1324 581" fill="none" marker-end="url(#arrow)" />
+<rect class="card card-sand" x="78" y="214" width="254" height="86" rx="20" ry="20" />
+<rect class="badge badge-sand" x="94" y="228" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-sand" x="78" y="312" width="254" height="86" rx="20" ry="20" />
+<rect class="badge badge-sand" x="94" y="326" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="78" y="526" width="254" height="102" rx="20" ry="20" />
+<rect class="badge badge-green" x="94" y="540" width="96.7" height="24" rx="12" ry="12" />
+<rect class="card card-green" x="78" y="648" width="254" height="102" rx="20" ry="20" />
+<rect class="badge badge-green" x="94" y="662" width="96.7" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="446" y="226" width="202" height="92" rx="20" ry="20" />
+<rect class="badge badge-blue" x="462" y="240" width="102.60000000000001" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="686" y="214" width="220" height="116" rx="20" ry="20" />
+<rect class="badge badge-blue" x="702" y="228" width="96.7" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="946" y="214" width="274" height="116" rx="20" ry="20" />
+<rect class="badge badge-blue" x="962" y="228" width="96.7" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="446" y="404" width="222" height="124" rx="20" ry="20" />
+<rect class="badge badge-blue" x="462" y="418" width="96.7" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="714" y="404" width="244" height="124" rx="20" ry="20" />
+<rect class="badge badge-blue" x="730" y="418" width="90.80000000000001" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="446" y="590" width="222" height="110" rx="20" ry="20" />
+<rect class="badge badge-blue" x="462" y="604" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="714" y="590" width="188" height="110" rx="20" ry="20" />
+<rect class="badge badge-blue" x="730" y="604" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-blue" x="946" y="556" width="274" height="144" rx="20" ry="20" />
+<rect class="badge badge-blue" x="962" y="570" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-slate" x="1324" y="214" width="216" height="86" rx="20" ry="20" />
+<rect class="badge badge-slate" x="1340" y="228" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-slate" x="1324" y="318" width="216" height="86" rx="20" ry="20" />
+<rect class="badge badge-slate" x="1340" y="332" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-rose" x="1324" y="536" width="216" height="90" rx="20" ry="20" />
+<rect class="badge badge-rose" x="1340" y="550" width="86" height="24" rx="12" ry="12" />
+<rect class="card card-rose" x="1324" y="646" width="216" height="90" rx="20" ry="20" />
+<rect class="badge badge-rose" x="1340" y="660" width="86" height="24" rx="12" ry="12" />
+<rect class="note note-green" x="964" y="360" width="252" height="144" rx="20" ry="20" />
+<text class="headline" x="48" y="72">Zephyr eBPF architecture overview</text>
+<text class="subheadline" x="48" y="104" text-anchor="start"><tspan x="48" dy="0">A single runtime-loaded bundle model: authoring and control stay outside the hot path, while backends converge on the same verifier,</tspan><tspan x="48" dy="18">dispatch, VM, helpers, and maps.</tspan></text>
+<text class="panel-title" x="66" y="164" text-anchor="start"><tspan x="66" dy="0">Bundle authoring</tspan></text>
+<text class="panel-subtitle" x="66" y="214" text-anchor="start"><tspan x="66" dy="0">Host tooling produces one signed or</tspan><tspan x="66" dy="17">unsigned bundle image from restricted C</tspan><tspan x="66" dy="17">or eBPF ELF input.</tspan></text>
+<text class="panel-title" x="66" y="476" text-anchor="start"><tspan x="66" dy="0">Native event sources</tspan></text>
+<text class="panel-subtitle" x="66" y="526" text-anchor="start"><tspan x="66" dy="0">Tracing and PM backends remain distinct</tspan><tspan x="66" dy="17">at capture time, then translate into</tspan><tspan x="66" dy="17">the common target-plus-context model.</tspan></text>
+<text class="panel-title" x="428" y="164" text-anchor="start"><tspan x="428" dy="0">Common runtime core</tspan></text>
+<text class="panel-subtitle" x="428" y="214" text-anchor="start"><tspan x="428" dy="0">One runtime resolves stable hooks, owns named bundles, verifies sessions, publishes enabled programs, and</tspan><tspan x="428" dy="17">executes them with controlled services.</tspan></text>
+<text class="panel-title" x="1320" y="164" text-anchor="start"><tspan x="1320" dy="0">Control surfaces</tspan></text>
+<text class="panel-subtitle" x="1320" y="214" text-anchor="start"><tspan x="1320" dy="0">Local and remote operators both</tspan><tspan x="1320" dy="17">talk to the same loader and</tspan><tspan x="1320" dy="17">bundle registry.</tspan></text>
+<text class="panel-title" x="1320" y="486" text-anchor="start"><tspan x="1320" dy="0">Consumers</tspan></text>
+<text class="panel-subtitle" x="1320" y="536" text-anchor="start"><tspan x="1320" dy="0">Normal Zephyr code and</tspan><tspan x="1320" dy="17">operations tooling consume</tspan><tspan x="1320" dy="17">exported counters, buffers, and</tspan><tspan x="1320" dy="17">lifecycle state.</tspan></text>
+<text class="badge-text badge-text-sand" x="137" y="244" text-anchor="middle"><tspan x="137" dy="0">host input</tspan></text>
+<text class="card-title" x="205" y="272" text-anchor="middle"><tspan x="205" dy="0">Restricted C</tspan><tspan x="205" dy="19">or eBPF ELF</tspan></text>
+<text class="card-body" x="205" y="320" text-anchor="middle"><tspan x="205" dy="0">authoring input</tspan><tspan x="205" dy="16">portable probe logic</tspan></text>
+<text class="badge-text badge-text-sand" x="137" y="342" text-anchor="middle"><tspan x="137" dy="0">build step</tspan></text>
+<text class="card-title" x="205" y="370" text-anchor="middle"><tspan x="205" dy="0">west ebpf build</tspan></text>
+<text class="card-body" x="205" y="399" text-anchor="middle"><tspan x="205" dy="0">bundle image v2</tspan><tspan x="205" dy="16">relocs + auth block</tspan></text>
+<text class="badge-text badge-text-green" x="142.35" y="556" text-anchor="middle"><tspan x="142.35" dy="0">event adapter</tspan></text>
+<text class="card-title" x="205" y="584" text-anchor="middle"><tspan x="205" dy="0">Tracing backend</tspan></text>
+<text class="card-body" x="205" y="613" text-anchor="middle"><tspan x="205" dy="0">thread switch, ISR, idle</tspan><tspan x="205" dy="16">native callback bridge</tspan></text>
+<text class="badge-text badge-text-green" x="142.35" y="678" text-anchor="middle"><tspan x="142.35" dy="0">event adapter</tspan></text>
+<text class="card-title" x="205" y="706" text-anchor="middle"><tspan x="205" dy="0">PM backend</tspan></text>
+<text class="card-body" x="205" y="735" text-anchor="middle"><tspan x="205" dy="0">state entry and exit</tspan><tspan x="205" dy="16">notifier callback bridge</tspan></text>
+<text class="badge-text badge-text-blue" x="513.3" y="256" text-anchor="middle"><tspan x="513.3" dy="0">public surface</tspan></text>
+<text class="card-title" x="547" y="284" text-anchor="middle"><tspan x="547" dy="0">Stable hooks</tspan></text>
+<text class="card-body" x="547" y="313" text-anchor="middle"><tspan x="547" dy="0">public hook IDs + names</tspan><tspan x="547" dy="16">target metadata and ctx</tspan><tspan x="547" dy="16">size</tspan></text>
+<text class="badge-text badge-text-blue" x="750.35" y="244" text-anchor="middle"><tspan x="750.35" dy="0">control plane</tspan></text>
+<text class="card-title" x="796" y="272" text-anchor="middle"><tspan x="796" dy="0">Loader registry</tspan></text>
+<text class="card-body" x="796" y="301" text-anchor="middle"><tspan x="796" dy="0">validate image</tspan><tspan x="796" dy="16">authenticate, name</tspan><tspan x="796" dy="16">registry, TTL</tspan></text>
+<text class="badge-text badge-text-blue" x="1010.35" y="244" text-anchor="middle"><tspan x="1010.35" dy="0">owned objects</tspan></text>
+<text class="card-title" x="1083" y="272" text-anchor="middle"><tspan x="1083" dy="0">Bundle runtime</tspan></text>
+<text class="card-body" x="1083" y="301" text-anchor="middle"><tspan x="1083" dy="0">own maps + attachments</tspan><tspan x="1083" dy="16">destroy coherently on unload</tspan></text>
+<text class="badge-text badge-text-blue" x="510.35" y="434" text-anchor="middle"><tspan x="510.35" dy="0">session state</tspan></text>
+<text class="card-title" x="557" y="462" text-anchor="middle"><tspan x="557" dy="0">Program lifecycle</tspan></text>
+<text class="card-body" x="557" y="491" text-anchor="middle"><tspan x="557" dy="0">attach, verify, enable</tspan><tspan x="557" dy="16">session sequence + stats</tspan></text>
+<text class="badge-text badge-text-blue" x="775.4" y="434" text-anchor="middle"><tspan x="775.4" dy="0">hot path hub</tspan></text>
+<text class="card-title" x="836" y="462" text-anchor="middle"><tspan x="836" dy="0">Dispatch runtime</tspan></text>
+<text class="card-body" x="836" y="491" text-anchor="middle"><tspan x="836" dy="0">immutable snapshots</tspan><tspan x="836" dy="16">fan-out by concrete target</tspan></text>
+<text class="badge-text badge-text-blue" x="505" y="620" text-anchor="middle"><tspan x="505" dy="0">safety gate</tspan></text>
+<text class="card-title" x="557" y="648" text-anchor="middle"><tspan x="557" dy="0">Verifier + contracts</tspan></text>
+<text class="card-body" x="557" y="677" text-anchor="middle"><tspan x="557" dy="0">attachment-aware safety</tspan><tspan x="557" dy="16">gate</tspan><tspan x="557" dy="16">helper and context policy</tspan></text>
+<text class="badge-text badge-text-blue" x="773" y="620" text-anchor="middle"><tspan x="773" dy="0">execution</tspan></text>
+<text class="card-title" x="808" y="648" text-anchor="middle"><tspan x="808" dy="0">Interpreter VM</tspan></text>
+<text class="card-body" x="808" y="677" text-anchor="middle"><tspan x="808" dy="0">fresh stack</tspan><tspan x="808" dy="16">per-event execution</tspan></text>
+<text class="badge-text badge-text-blue" x="1005" y="586" text-anchor="middle"><tspan x="1005" dy="0">data plane</tspan></text>
+<text class="card-title" x="1083" y="614" text-anchor="middle"><tspan x="1083" dy="0">Helpers + maps</tspan></text>
+<text class="card-body" x="1083" y="643" text-anchor="middle"><tspan x="1083" dy="0">controlled services</tspan><tspan x="1083" dy="16">shared counters, state, and ring</tspan><tspan x="1083" dy="16">buffers</tspan></text>
+<text class="badge-text badge-text-slate" x="1383" y="244" text-anchor="middle"><tspan x="1383" dy="0">local</tspan></text>
+<text class="card-title" x="1432" y="272" text-anchor="middle"><tspan x="1432" dy="0">Loader API</tspan></text>
+<text class="card-body" x="1432" y="301" text-anchor="middle"><tspan x="1432" dy="0">load, enable, disable</tspan><tspan x="1432" dy="16">unload, inspect by name</tspan></text>
+<text class="badge-text badge-text-slate" x="1383" y="348" text-anchor="middle"><tspan x="1383" dy="0">remote</tspan></text>
+<text class="card-title" x="1432" y="376" text-anchor="middle"><tspan x="1432" dy="0">MCUmgr eBPF</tspan></text>
+<text class="card-body" x="1432" y="405" text-anchor="middle"><tspan x="1432" dy="0">upload, verify, operate</tspan><tspan x="1432" dy="16">remote named-bundle</tspan><tspan x="1432" dy="16">control</tspan></text>
+<text class="badge-text badge-text-rose" x="1383" y="566" text-anchor="middle"><tspan x="1383" dy="0">normal code</tspan></text>
+<text class="card-title" x="1432" y="594" text-anchor="middle"><tspan x="1432" dy="0">Application logic</tspan></text>
+<text class="card-body" x="1432" y="623" text-anchor="middle"><tspan x="1432" dy="0">reads maps</tspan><tspan x="1432" dy="16">reacts to exported state</tspan></text>
+<text class="badge-text badge-text-rose" x="1383" y="676" text-anchor="middle"><tspan x="1383" dy="0">operations</tspan></text>
+<text class="card-title" x="1432" y="704" text-anchor="middle"><tspan x="1432" dy="0">Field diagnostics</tspan></text>
+<text class="card-body" x="1432" y="733" text-anchor="middle"><tspan x="1432" dy="0">observability, tracing</tspan><tspan x="1432" dy="16">power and latency insight</tspan></text>
+<text class="note-title" x="982" y="390" text-anchor="start"><tspan x="982" dy="0">Hot path stays narrow</tspan></text>
+<text class="note-body" x="982" y="418" text-anchor="start"><tspan x="982" dy="0">Backends deliver one target and</tspan><tspan x="982" dy="16">one typed context.</tspan><tspan x="982" dy="16">Only enabled sessions reach the</tspan><tspan x="982" dy="16">VM on the event path.</tspan></text>
+<text class="caption" x="970" y="752" text-anchor="middle"><tspan x="970" dy="0">Control operations stay off-path; runtime execution converges through one shared dispatch and VM core.</tspan></text>
+<rect class="label-bubble label-bubble-blue" x="475" y="342" width="150" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-blue" x="973.6" y="334" width="212.8" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-blue" x="500.35" y="546" width="183.3" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-green" x="620" y="378" width="120" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-blue" x="739" y="702" width="182" height="28" rx="14" ry="14" />
+<rect class="label-bubble label-bubble-rose" x="1158" y="554" width="108" height="28" rx="14" ry="14" />
+<text class="label-bubble-text" x="550" y="361" text-anchor="middle"><tspan x="550" dy="0">resolve stable names</tspan></text>
+<text class="label-bubble-text" x="1080" y="353" text-anchor="middle"><tspan x="1080" dy="0">instantiate bundle-owned objects</tspan></text>
+<text class="label-bubble-text" x="592" y="565" text-anchor="middle"><tspan x="592" dy="0">verify then publish session</tspan></text>
+<text class="label-bubble-text" x="680" y="397" text-anchor="middle"><tspan x="680" dy="0">target + context</tspan></text>
+<text class="label-bubble-text" x="830" y="721" text-anchor="middle"><tspan x="830" dy="0">CALL helpers and map ops</tspan></text>
+<text class="label-bubble-text" x="1212" y="573" text-anchor="middle"><tspan x="1212" dy="0">shared state</tspan></text>
+</svg>

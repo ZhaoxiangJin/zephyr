@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: Copyright 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+
+common:
+  platform_allow:
+    - qemu_x86
+  tags: ebpf mcumgr
+tests:
+  ebpf.mcumgr:
+    tags: ebpf mcumgr
