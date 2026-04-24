@@ -10,6 +10,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/mipi_dbi.h>
+#include <zephyr/drivers/misc/nxp_power_rail/nxp_power_rail.h>
 #include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -29,6 +30,8 @@ struct mcux_dcnano_lcdif_dbi_config {
 	lcdif_panel_config_t panel_config;
 	const struct pinctrl_dev_config *pincfg;
 	const struct gpio_dt_spec reset;
+	const struct nxp_power_rail_spec *power_rails;
+	uint8_t power_rail_count;
 };
 
 struct mcux_dcnano_lcdif_dbi_foramt_map_t {
@@ -167,6 +170,14 @@ static int mcux_dcnano_lcdif_dbi_init(const struct device *dev)
 		return ret;
 	}
 #endif
+
+	for (uint8_t i = 0; i < config->power_rail_count; i++) {
+		int ret = nxp_power_rail_request_spec(&config->power_rails[i]);
+
+		if (ret) {
+			return ret;
+		}
+	}
 
 	LCDIF_Init(config->base);
 
@@ -335,7 +346,25 @@ static DEVICE_API(mipi_dbi, mcux_dcnano_lcdif_dbi_api) = {
 	.write_display = mipi_dbi_dcnano_lcdif_write_display,
 };
 
+#define MCUX_DCNANO_LCDIF_POWER_RAIL_ENTRY(node_id, prop, idx)                          \
+	NXP_POWER_RAIL_DT_SPEC_GET_BY_IDX(node_id, idx),
+
+#define MCUX_DCNANO_LCDIF_POWER_RAIL_DEFINE(n)                                          \
+	IF_ENABLED(DT_INST_NODE_HAS_PROP(n, nxp_power_rails),                           \
+		(static const struct nxp_power_rail_spec                                \
+			mcux_dcnano_lcdif_power_rails_##n[] = {                         \
+			DT_INST_FOREACH_PROP_ELEM(n, nxp_power_rails,                   \
+						  MCUX_DCNANO_LCDIF_POWER_RAIL_ENTRY)   \
+		};))
+
+#define MCUX_DCNANO_LCDIF_POWER_RAIL_INIT(n)                                            \
+	COND_CODE_1(DT_INST_NODE_HAS_PROP(n, nxp_power_rails),                          \
+		(.power_rails = mcux_dcnano_lcdif_power_rails_##n,                      \
+		 .power_rail_count = ARRAY_SIZE(mcux_dcnano_lcdif_power_rails_##n),),   \
+		(.power_rails = NULL, .power_rail_count = 0,))
+
 #define MCUX_DCNANO_LCDIF_DEVICE_INIT(n)						\
+	MCUX_DCNANO_LCDIF_POWER_RAIL_DEFINE(n)						\
 	static void mcux_dcnano_lcdif_dbi_config_func_##n(const struct device *dev)	\
 	{										\
 		IRQ_CONNECT(DT_INST_IRQN(n),						\
@@ -352,6 +381,7 @@ static DEVICE_API(mipi_dbi, mcux_dcnano_lcdif_dbi_api) = {
 		.irq_config_func = mcux_dcnano_lcdif_dbi_config_func_##n,		\
 		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),				\
 		.reset = GPIO_DT_SPEC_INST_GET_OR(n, reset_gpios, {0}),			\
+		MCUX_DCNANO_LCDIF_POWER_RAIL_INIT(n)					\
 		.dbi_config = {								\
 			.type = kLCDIF_DbiTypeA_FixedE,					\
 			.swizzle = DT_INST_ENUM_IDX_OR(n, swizzle, 0),			\
