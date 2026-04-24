@@ -4,7 +4,8 @@
 config NXP_POWER_RAIL
 	bool
 	help
-	  Selected by concrete NXP power-rail controller drivers.
+	  Selected by concrete NXP power-rail controller drivers (PMC,
+	  SLEEPCON).
 
 config NXP_PMC_POWER_RAIL
 	bool "NXP PMC power-rail controller driver"
@@ -15,6 +16,16 @@ config NXP_PMC_POWER_RAIL
 	  Enable the NXP PMC power-rail controller driver. The driver
 	  operates on the ``PDRUNCFGn`` staging registers and commits
 	  changes via ``CTRL.APPLYCFG``.
+
+config NXP_SLEEPCON_POWER_RAIL
+	bool "NXP SLEEPCON power-rail controller driver"
+	default y
+	depends on DT_HAS_NXP_SLEEPCON_POWER_RAIL_CONTROLLER_ENABLED
+	select NXP_POWER_RAIL
+	help
+	  Enable the NXP SLEEPCON power-rail controller driver. The driver
+	  operates on the single ``RUNCFG`` register through its
+	  write-to-set / write-to-clear aliases.
 
 if NXP_POWER_RAIL
 

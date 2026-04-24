@@ -1136,6 +1136,12 @@
 		#power-rail-cells = <1>;
 	};
 
+	sleepcon0: sleepcon@3000 {
+		compatible = "nxp,sleepcon-power-rail-controller";
+		reg = <0x3000 0x1000>;
+		#power-rail-cells = <1>;
+	};
+
 	uuid: uuid@2bc0 {
 		compatible = "nxp,lpc-uid";
 		reg = <0x2bc0 0x10>;

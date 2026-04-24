@@ -1,0 +1,45 @@
+# Copyright 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  NXP SLEEPCON power-rail controller.
+
+  SLEEPCON manages the clock-tree side of the low-power architecture:
+  domain main-clock shut-off bits, on-chip oscillator and PLL enables
+  (FRO, XTAL, LPOSC, ADC) and similar analog/clock-gate controls. These
+  bits live in a single 32-bit ``RUNCFG`` register that is shadowed by
+  write-1-to-set and write-1-to-clear alias registers (``RUNCFG_SET`` /
+  ``RUNCFG_CLR``). Writes take effect immediately - no commit step is
+  required.
+
+  Consumers request the rails they need through the ``nxp,power-rails``
+  phandle-array property. Each specifier is a single controller-local
+  identifier, interpreted as a bit position in ``RUNCFG`` (0..31).
+  Named constants for the SoC in use are provided in
+  ``include/zephyr/dt-bindings/power/nxp_rt7xx_sleepcon_power.h``.
+
+compatible: "nxp,sleepcon-power-rail-controller"
+
+include: base.yaml
+
+examples: |
+    sleepcon0: sleepcon@3000 {
+      compatible = "nxp,sleepcon-power-rail-controller";
+      reg = <0x3000 0x1000>;
+      #power-rail-cells = <1>;
+    };
+
+    &lcdif {
+      nxp,power-rails = <&sleepcon0 NXP_RT7XX_SLEEPCON_SHUT_MEDIA_MAINCLK>;
+    };
+
+properties:
+  reg:
+    required: true
+
+  "#power-rail-cells":
+    type: int
+    const: 1
+
+power-rail-cells:
+  - id
