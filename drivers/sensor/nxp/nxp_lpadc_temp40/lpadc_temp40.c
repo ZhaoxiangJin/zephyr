@@ -14,8 +14,9 @@
 
 LOG_MODULE_REGISTER(lpadc_temp40, CONFIG_SENSOR_LOG_LEVEL);
 
-/* Four ADC samples: first two are dropped, then VBE1 and VBE8 */
+/* Four ADC samples: first 32 are dropped, then VBE1 and VBE8 */
 #define TEMP_ADC_SAMPLES 1
+#define LPADC_TEMP40_WARMUP_READS 32U
 
 struct lpadc_temp40_config {
 	const struct device *adc;
@@ -106,18 +107,25 @@ static int lpadc_temp40_init(const struct device *dev)
 {
 	const struct lpadc_temp40_config *config = dev->config;
 	int err;
-
+ 
 	if (!device_is_ready(config->adc)) {
-		LOG_ERR_DEVICE_NOT_READY(config->adc.dev);
+		LOG_ERR_DEVICE_NOT_READY(config->adc);
 		return -ENODEV;
 	}
-
+ 
 	err = adc_channel_setup(config->adc, &config->ch_cfg);
 	if (err) {
 		LOG_ERR("Failed to setup ADC channel (err %d)", err);
 		return err;
 	}
-
+ 
+	for (uint32_t i = 0U; i < LPADC_TEMP40_WARMUP_READS; i++) {
+		err = lpadc_temp40_sample_fetch(dev, SENSOR_CHAN_DIE_TEMP);
+		if (err) {
+			return err;
+		}
+	}
+ 
 	return 0;
 }
 
