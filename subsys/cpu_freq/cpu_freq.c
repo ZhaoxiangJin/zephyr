@@ -10,6 +10,8 @@
 #include <zephyr/cpu_freq/policy.h>
 #include <zephyr/cpu_freq/cpu_freq.h>
 
+#include "cpu_freq_thermal_cap.h"
+
 LOG_MODULE_REGISTER(cpu_freq, CONFIG_CPU_FREQ_LOG_LEVEL);
 
 #ifndef CONFIG_SMP
@@ -44,12 +46,15 @@ static void cpu_freq_next_pstate(void)
 
 	/* Get next performance state */
 	const struct pstate *pstate_next;
+	const struct pstate *pstate_applied;
 
 	ret = cpu_freq_policy_select_pstate(&pstate_next);
 	if (ret) {
 		LOG_ERR("Failed to get pstate: %d", ret);
 		return;
 	}
+
+	pstate_next = cpu_freq_thermal_cap_apply(pstate_next);
 
 #ifndef CONFIG_SMP
 	if (pstate_next == pstate_last) {
@@ -59,11 +64,11 @@ static void cpu_freq_next_pstate(void)
 	}
 #endif /* CONFIG_SMP */
 
-	cpu_freq_policy_pstate_set(pstate_next);
+	pstate_applied = cpu_freq_policy_pstate_set(pstate_next);
 
 #ifndef CONFIG_SMP
-	if (pstate_next != NULL) {
-		pstate_last = pstate_next;
+	if (pstate_applied != NULL) {
+		pstate_last = pstate_applied;
 	}
 #endif /* CONFIG_SMP */
 
