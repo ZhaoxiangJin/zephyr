@@ -1,0 +1,41 @@
+common:
+  tags: cpu_freq
+
+tests:
+  # Snapshot-only behavior (history disabled).
+  subsys.cpu_freq.stub.policies.pressure.snapshot:
+    extra_dtc_overlay_files:
+      - pstate-stub.overlay
+    platform_allow:
+      - qemu_cortex_a53/qemu_cortex_a53/smp
+    integration_platforms:
+      - qemu_cortex_a53/qemu_cortex_a53/smp
+    extra_configs:
+      - CONFIG_CPU_FREQ_PSTATE_SET_STUB=y
+      - CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY=n
+
+  # Default blended behavior (history enabled, weight 50).
+  subsys.cpu_freq.stub.policies.pressure.blended:
+    extra_dtc_overlay_files:
+      - pstate-stub.overlay
+    platform_allow:
+      - qemu_cortex_a53/qemu_cortex_a53/smp
+    integration_platforms:
+      - qemu_cortex_a53/qemu_cortex_a53/smp
+    extra_configs:
+      - CONFIG_CPU_FREQ_PSTATE_SET_STUB=y
+      - CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY=y
+      - CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY_WEIGHT=50
+
+  # Pure runtime-history weighting.
+  subsys.cpu_freq.stub.policies.pressure.runtime_only:
+    extra_dtc_overlay_files:
+      - pstate-stub.overlay
+    platform_allow:
+      - qemu_cortex_a53/qemu_cortex_a53/smp
+    integration_platforms:
+      - qemu_cortex_a53/qemu_cortex_a53/smp
+    extra_configs:
+      - CONFIG_CPU_FREQ_PSTATE_SET_STUB=y
+      - CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY=y
+      - CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY_WEIGHT=100
