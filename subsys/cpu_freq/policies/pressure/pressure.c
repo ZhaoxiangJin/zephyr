@@ -87,10 +87,14 @@ static int get_normalized_sys_pressure(void)
 	struct pressure_stats sys_pressure = {.max_pressure = 0, .pressure_acum = 0};
 
 #ifdef CONFIG_CPU_FREQ_PER_CPU_SCALING
-	k_thread_foreach_filter_by_cpu(_kernel.cpus[cpu].current, thread_eval_cb, &sys_pressure);
+	k_thread_foreach_filter_by_cpu(arch_curr_cpu()->id, thread_eval_cb, &sys_pressure);
 #else
 	k_thread_foreach(thread_eval_cb, &sys_pressure);
 #endif /* CONFIG_CPU_FREQ_PER_CPU_SCALING */
+
+	if (sys_pressure.max_pressure == 0) {
+		return 0;
+	}
 
 	int normalized_pressure = (sys_pressure.pressure_acum * 100) / sys_pressure.max_pressure;
 
