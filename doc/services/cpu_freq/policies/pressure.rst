@@ -23,6 +23,33 @@ where
 This produces a normalized system pressure between 0 and 100 which is then used to select an
 appropriate P-state as defined by the SoC or overlay file.
 
+When :kconfig:option:`CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY` is enabled, the policy
+blends this instantaneous runnable-thread pressure with the non-idle CPU runtime measured over
+the previous CPU frequency evaluation window. This keeps short-lived queue bursts from being
+treated as sustained CPU pressure when the recent execution history shows little actual CPU
+demand. The blend is controlled by :kconfig:option:`CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY_WEIGHT`.
+
+The effective pressure is computed as:
+
+.. math::
+
+   P_{eff} = \frac{P_{sys} \times (100 - W) + P_{rt} \times W}{100}
+
+where :math:`W` is :kconfig:option:`CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY_WEIGHT`
+and :math:`P_{rt}` is the percentage of the previous evaluation window during which the CPU
+executed non-idle work.
+
+A weight of ``0`` preserves the snapshot-only behavior; a weight of ``100`` bases the
+pressure score entirely on recent non-idle CPU runtime. Note that the policy is still only
+invoked when the CPU frequency framework evaluates it, so the runnable-thread snapshot is
+always required to drive evaluation - a weight of ``100`` does not disable that path.
+
+This feature relies on the kernel's runtime statistics. When
+:kconfig:option:`CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY` is enabled,
+:kconfig:option:`CONFIG_THREAD_RUNTIME_STATS` is selected automatically. The very first
+invocation after boot, as well as any window in which the cycle counters were reset, falls
+back to the instantaneous pressure value.
+
 Once the normalized system pressure is calculated, it is treated as the system 'load' and the
 policy will then iterate through the available P-states of the SoC and select the first P-state
 for which the normalized pressure is greater than or equal to the defined threshold.
