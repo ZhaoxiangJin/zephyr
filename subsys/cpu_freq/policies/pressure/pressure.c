@@ -45,6 +45,28 @@ struct pressure_stats {
 	int max_pressure;
 };
 
+#ifdef CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY
+/*
+ * Note on k_thread_runtime_stats_t field semantics for CPU stats:
+ *   - execution_cycles == total elapsed cycles (non-idle + idle)
+ *   - total_cycles     == non-idle cycles only
+ * Therefore (total_cycles_delta * 100) / execution_cycles_delta yields the
+ * percentage of the previous evaluation window that the CPU spent executing
+ * non-idle work.
+ */
+struct runtime_history_sample {
+	uint64_t last_execution_cycles;
+	uint64_t last_total_cycles;
+	bool has_last_sample;
+};
+
+#ifdef CONFIG_CPU_FREQ_PER_CPU_SCALING
+static struct runtime_history_sample runtime_history[CONFIG_MP_MAX_NUM_CPUS];
+#else
+static struct runtime_history_sample runtime_history;
+#endif /* CONFIG_CPU_FREQ_PER_CPU_SCALING */
+#endif /* CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY */
+
 static bool is_runnable(const struct k_thread *thread)
 {
 	bool rv = false;
@@ -104,6 +126,101 @@ static int get_normalized_sys_pressure(void)
 	return normalized_pressure;
 }
 
+#ifdef CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY
+static struct runtime_history_sample *get_runtime_history(void)
+{
+#ifdef CONFIG_CPU_FREQ_PER_CPU_SCALING
+	return &runtime_history[arch_curr_cpu()->id];
+#else
+	return &runtime_history;
+#endif /* CONFIG_CPU_FREQ_PER_CPU_SCALING */
+}
+
+/*
+ * Compute the percentage of recent CPU time spent on non-idle work.
+ *
+ * On success, writes a value in [0, 100] to *pressure_out and returns 0.
+ * Returns -EAGAIN when no valid sample is available yet (first call, or the
+ * elapsed window was empty / counters reset).
+ * Returns a negative errno on failure to fetch runtime stats.
+ */
+static int get_normalized_history_pressure(int *pressure_out)
+{
+	struct runtime_history_sample *history = get_runtime_history();
+	k_thread_runtime_stats_t stats;
+	uint64_t execution_delta;
+	uint64_t total_delta;
+	int ret;
+
+#ifdef CONFIG_CPU_FREQ_PER_CPU_SCALING
+	ret = k_thread_runtime_stats_cpu_get(arch_curr_cpu()->id, &stats);
+#else
+	ret = k_thread_runtime_stats_all_get(&stats);
+#endif /* CONFIG_CPU_FREQ_PER_CPU_SCALING */
+	if (ret != 0) {
+		return ret;
+	}
+
+	if (!history->has_last_sample) {
+		history->last_execution_cycles = stats.execution_cycles;
+		history->last_total_cycles = stats.total_cycles;
+		history->has_last_sample = true;
+		return -EAGAIN;
+	}
+
+	/*
+	 * Sanity check the deltas. The cycle counters are monotonically
+	 * increasing under normal operation, so a current sample lower than
+	 * the stored one indicates a counter reset (e.g. after
+	 * k_thread_runtime_stats_disable()/_enable()) or a 64-bit wrap. In
+	 * that case discard this window and re-seed the history. Likewise,
+	 * non-idle delta must never exceed the elapsed delta.
+	 */
+	if ((stats.execution_cycles < history->last_execution_cycles) ||
+	    (stats.total_cycles < history->last_total_cycles)) {
+		history->last_execution_cycles = stats.execution_cycles;
+		history->last_total_cycles = stats.total_cycles;
+		return -EAGAIN;
+	}
+
+	execution_delta = stats.execution_cycles - history->last_execution_cycles;
+	total_delta = stats.total_cycles - history->last_total_cycles;
+	history->last_execution_cycles = stats.execution_cycles;
+	history->last_total_cycles = stats.total_cycles;
+
+	if (execution_delta == 0U) {
+		return -EAGAIN;
+	}
+
+	if (total_delta > execution_delta) {
+		/* Implausible: more non-idle time than elapsed time. */
+		return -EAGAIN;
+	}
+
+	*pressure_out = (int)((total_delta * 100U) / execution_delta);
+	return 0;
+}
+
+static int get_effective_pressure(int snapshot_pressure)
+{
+	int history_pressure;
+
+	if (get_normalized_history_pressure(&history_pressure) != 0) {
+		return snapshot_pressure;
+	}
+
+	return ((snapshot_pressure *
+		 (100 - CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY_WEIGHT)) +
+		(history_pressure *
+		 CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY_WEIGHT)) / 100;
+}
+#else
+static int get_effective_pressure(int snapshot_pressure)
+{
+	return snapshot_pressure;
+}
+#endif /* CONFIG_CPU_FREQ_POLICY_PRESSURE_RUNTIME_HISTORY */
+
 /*
  * The pressure policy iterates through the threads currently sitting in the ready queue at the time
  * of evaluation and accumulates the sum of their priorities, normalizing them around
@@ -128,7 +245,7 @@ int cpu_freq_policy_select_pstate(const struct pstate **pstate_out)
 	cpu_id = arch_curr_cpu()->id;
 #endif
 
-	sys_pressure = get_normalized_sys_pressure();
+	sys_pressure = get_effective_pressure(get_normalized_sys_pressure());
 
 	if (sys_pressure < 0) {
 		LOG_ERR("Unable to retrieve system pressure");
