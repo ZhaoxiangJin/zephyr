@@ -338,6 +338,28 @@ int k_thread_runtime_stats_disable(k_tid_t  thread)
 }
 #endif /* CONFIG_SCHED_THREAD_USAGE_ANALYSIS */
 
+int k_thread_runtime_cycles_profile_get(k_tid_t thread,
+						k_thread_runtime_cycles_profile_t *profile)
+{
+	CHECKIF((thread == NULL) || (profile == NULL)) {
+		return -EINVAL;
+	}
+
+#ifdef CONFIG_SCHED_THREAD_USAGE_BURST_PROFILE
+	k_spinlock_key_t key;
+
+	key = k_spin_lock(&usage_lock);
+	profile->burst_avg_cycles = thread->base.usage.burst_avg;
+	profile->sample_count = thread->base.usage.burst_samples;
+	profile->confidence = thread->base.usage.burst_confidence;
+	k_spin_unlock(&usage_lock, key);
+
+	return 0;
+#else
+	return -ENOTSUP;
+#endif /* CONFIG_SCHED_THREAD_USAGE_BURST_PROFILE */
+}
+
 #ifdef CONFIG_SCHED_THREAD_USAGE_ALL
 void k_sys_runtime_stats_enable(void)
 {
