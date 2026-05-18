@@ -24,6 +24,11 @@ extern "C" {
  * @{
  */
 
+enum cpu_workload_source {
+	/** CPU workload signal used per-thread burst profiles. */
+	CPU_WORKLOAD_SOURCE_THREAD_BURST_PROFILE = BIT(0),
+};
+
 /**
  * @}
  */
