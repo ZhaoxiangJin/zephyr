@@ -1,0 +1,19 @@
+# Copyright 2026 NXP
+#
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig CPU_WORKLOAD
+	bool "CPU Workload"
+	select EXPERIMENTAL
+	help
+	  CPU workload subsystem. It collects runtime, scheduling, and workqueue
+	  activity, then exposes interpretable CPU work signals for recent, queued,
+	  and expected work.
+
+if CPU_WORKLOAD
+
+module = CPU_WORKLOAD
+module-str = CPU Workload
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # CPU_WORKLOAD
