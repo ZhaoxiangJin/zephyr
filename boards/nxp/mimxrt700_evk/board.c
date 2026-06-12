@@ -261,7 +261,24 @@ void board_early_init_hook(void)
 #endif
 
 #if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(lpi2c15))
+	/*
+	 * LPI2C15 lives in the Sense domain -- its functional clock mux is
+	 * CLKCTL3->LPI2CFCLKSEL -- so each core sources it from a clock its own
+	 * domain guarantees: CPU0 from FRO1 in VDD2_COM, CPU1 from the Sense base
+	 * clock it configures itself. CPU0 must not pick the Sense base clock:
+	 * only the CPU1 image configures it and its main-clock gate is opened in
+	 * second_core_boot(), so a CPU0-only build would see 0 Hz here and divide
+	 * by zero in LPI2C_MasterInit.
+	 *
+	 * That mux is a single shared field, so this bus belongs to one core. If
+	 * both images enable the node, whichever boots later re-muxes it and
+	 * leaves the other core's baud divider computed for the wrong source.
+	 */
+#if CONFIG_SOC_MIMXRT798S_CM33_CPU0
+	CLOCK_AttachClk(kFRO1_DIV1_to_LPI2C15);
+#elif CONFIG_SOC_MIMXRT798S_CM33_CPU1
 	CLOCK_AttachClk(kSENSE_BASE_to_LPI2C15);
+#endif
 	CLOCK_SetClkDiv(kCLOCK_DivLpi2c15Clk, 2U);
 	CLOCK_EnableClock(kCLOCK_LPI2c15);
 #endif
