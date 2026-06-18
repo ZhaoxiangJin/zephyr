@@ -10,6 +10,7 @@
 
 #include <zephyr/init.h>
 #include <zephyr/drivers/timer/system_timer.h>
+#include <zephyr/drivers/timer/system_timer_lpm.h>
 #include <zephyr/drivers/timer/nxp_os_timer.h>
 #include <zephyr/irq.h>
 #include <zephyr/sys_clock.h>
@@ -39,13 +40,37 @@ static OSTIMER_Type *base = (OSTIMER_Type *)DT_INST_REG_ADDR(0);
  * certain deep sleep modes and the time elapsed when it is powered off.
  */
 static uint64_t cyc_sys_compensated;
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(standby)) && CONFIG_PM
+/*
+ * Some SoCs collapse the OS Timer power domain in deep low-power states (e.g.
+ * RT700 Deep Sleep Retention), so the OS Timer cannot wake the system on its
+ * own. Two mutually exclusive low-power companion mechanisms are supported:
+ *
+ *   - The generic system-timer low-power companion framework, selected through
+ *     CONFIG_SYSTEM_TIMER_LPM_COMPANION_COUNTER/HOOKS and the
+ *     /chosen/zephyr,system-timer-companion property. This is board agnostic
+ *     and does not depend on any NXP-specific power-state node.
+ *   - The legacy NXP "deep-sleep-counter" phandle path, kept for existing
+ *     platforms (e.g. RW61x) that wire a Counter API device directly on the
+ *     nxp,os-timer node and define a "standby" power state.
+ */
+#if defined(CONFIG_SYSTEM_TIMER_LPM_COMPANION_COUNTER) || \
+    defined(CONFIG_SYSTEM_TIMER_LPM_COMPANION_HOOKS)
+#define MCUX_OS_TIMER_LPM_GENERIC 1
+/* Indicates the low-power companion has been armed for the current sleep. */
+static bool lpm_companion_armed;
+#elif DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(standby)) && CONFIG_PM
+#define MCUX_OS_TIMER_LPM_LEGACY 1
 /* This is the counter device used when OS timer is not available in standby mode. */
 static const struct device *counter_dev =
 	DEVICE_DT_GET_OR_NULL(DT_INST_PHANDLE(0, deep_sleep_counter));
 /* Indicates if the counter is running. */
 static bool counter_running;
 static uint32_t counter_max_val;
+#endif
+
+/* Either companion mechanism enables the shared low-power timeout integration. */
+#if defined(MCUX_OS_TIMER_LPM_GENERIC) || defined(MCUX_OS_TIMER_LPM_LEGACY)
+#define MCUX_OS_TIMER_LPM 1
 #endif
 /* Indicates we received a call with ticks set to wait forever */
 static bool wait_forever;
@@ -100,7 +125,66 @@ void mcux_lpc_ostick_isr(const void *arg)
 	sys_clock_announce(IS_ENABLED(CONFIG_TICKLESS_KERNEL) ? elapsed_ticks : 1);
 }
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(standby)) && CONFIG_PM
+#if defined(MCUX_OS_TIMER_LPM_GENERIC)
+
+/* The OS Timer is disabled in certain low power modes and cannot wakeup the
+ * system on timeout. Delegate low-power timekeeping to the generic system-timer
+ * companion, which arms a Counter API device that stays alive across the mode.
+ */
+static uint32_t mcux_lpc_ostick_set_counter_timeout(uint64_t timeout_us)
+{
+	/* Arm the system-timer low-power companion to wake the system. */
+	z_sys_clock_lpm_enter(timeout_us);
+	lpm_companion_armed = true;
+
+	if (IS_ENABLED(CONFIG_MCUX_OS_TIMER_PM_POWERED_OFF)) {
+		/* Capture the OS Timer value for modes where it loses its state. */
+		cyc_sys_compensated += OSTIMER_GetCurrentTimerValue(base);
+	}
+
+	if (IS_ENABLED(CONFIG_SYSTEM_TIMER_RESET_BY_LPM)) {
+		/* The companion now owns wakeup. Silence the OS Timer match
+		 * interrupt so a stale match cannot wake the system early in
+		 * low-power modes where the OS Timer stays powered (e.g. Deep
+		 * Sleep). It is re-armed on wakeup, once the timer is
+		 * reinitialized and the kernel programs the next timeout.
+		 */
+		base->OSEVENT_CTRL &= ~OSTIMER_OSEVENT_CTRL_OSTIMER_INTENA_MASK;
+	}
+
+	return 0;
+}
+
+static uint32_t mcux_lpc_ostick_compensate_system_timer(void)
+{
+	uint64_t slept_time_us;
+
+	if (!lpm_companion_armed) {
+		return 0;
+	}
+	lpm_companion_armed = false;
+
+	/* Recover the time spent in low power from the companion counter. */
+	slept_time_us = z_sys_clock_lpm_exit();
+	cyc_sys_compensated += (uint64_t)CYC_PER_US * slept_time_us;
+
+	if (IS_ENABLED(CONFIG_MCUX_OS_TIMER_PM_POWERED_OFF)) {
+		/* Reset the OS Timer to a known state and reinitialize it. */
+		const struct reset_dt_spec reset = RESET_DT_SPEC_INST_GET_OR(0, {0});
+
+		if (reset.dev != NULL) {
+			reset_line_toggle_dt(&reset);
+		}
+		OSTIMER_Init(base);
+	}
+
+	/* Announce the time slept to the kernel. */
+	mcux_lpc_ostick_isr(NULL);
+
+	return 0;
+}
+
+#elif defined(MCUX_OS_TIMER_LPM_LEGACY) /* legacy deep-sleep-counter path */
 
 static struct counter_top_cfg top_cfg = {0};
 static struct counter_alarm_cfg alarm_cfg = {0};
@@ -203,6 +287,13 @@ static uint32_t mcux_lpc_ostick_compensate_system_timer(void)
 	return 0;
 }
 
+#endif /* MCUX_OS_TIMER_LPM_GENERIC / MCUX_OS_TIMER_LPM_LEGACY */
+
+#if defined(MCUX_OS_TIMER_LPM) && !defined(CONFIG_SYSTEM_TIMER_RESET_BY_LPM)
+/* Poke-path helper: the SoC signals a standby entry via a zero-tick idle
+ * timeout. Unused in the RESET_BY_LPM always-handoff model, which arms the
+ * companion directly on every idle.
+ */
 static void mcux_os_timer_set_lp_counter_timeout(void)
 {
 	uint64_t timeout;
@@ -237,7 +328,7 @@ static void mcux_os_timer_set_lp_counter_timeout(void)
 }
 #else
 #define mcux_os_timer_set_lp_counter_timeout(...) do { } while (0)
-#endif
+#endif /* MCUX_OS_TIMER_LPM && !CONFIG_SYSTEM_TIMER_RESET_BY_LPM */
 
 bool z_nxp_os_timer_ignore_timer_wakeup(void)
 {
@@ -251,7 +342,24 @@ void sys_clock_set_timeout(uint32_t ticks, bool idle)
 		return;
 	}
 
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(standby)) && CONFIG_PM
+#if defined(MCUX_OS_TIMER_LPM)
+#if defined(CONFIG_SYSTEM_TIMER_RESET_BY_LPM)
+	/* The OS Timer is reset by the low-power mode. Mirror the Cortex-M
+	 * SysTick low-power companion model: on every tickless idle, hand
+	 * wakeup timekeeping over to the companion unconditionally. No
+	 * SoC-specific poke or PM-state gating is required.
+	 */
+	if (idle) {
+		uint32_t lp_ticks = (ticks == SYS_CLOCK_MAX_WAIT) ? MAX_TICKS : ticks;
+		uint64_t timeout_us;
+
+		lp_ticks = CLAMP(lp_ticks, 1, MAX_TICKS);
+		timeout_us = ((uint64_t)lp_ticks * USEC_PER_SEC) / CONFIG_SYS_CLOCK_TICKS_PER_SEC;
+
+		mcux_lpc_ostick_set_counter_timeout(timeout_us);
+		return;
+	}
+#else
 	/* We intercept calls from idle with a 0 tick count when PM=y */
 	if (idle && (ticks == 0)) {
 		mcux_os_timer_set_lp_counter_timeout();
@@ -264,6 +372,7 @@ void sys_clock_set_timeout(uint32_t ticks, bool idle)
 	 * delay is forever. This is to keep track of wakeup sources in case of counter overflows.
 	 */
 	wait_forever = (ticks == SYS_CLOCK_MAX_WAIT);
+#endif /* CONFIG_SYSTEM_TIMER_RESET_BY_LPM */
 #else
 	ARG_UNUSED(idle);
 #endif
@@ -322,13 +431,20 @@ uint64_t sys_clock_cycle_get_64(void)
 
 void sys_clock_idle_exit(void)
 {
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(standby)) && CONFIG_PM
+#if defined(MCUX_OS_TIMER_LPM)
+#if defined(CONFIG_SYSTEM_TIMER_RESET_BY_LPM)
+	/* Always-handoff: the companion was armed on idle entry regardless of
+	 * the low-power state. compensate() no-ops if it was not armed.
+	 */
+	mcux_lpc_ostick_compensate_system_timer();
+#else
 	/* The tick should be compensated for states where the
 	 * OS Timer is disabled
 	 */
 	if (pm_state_next_get(0)->state == PM_STATE_STANDBY) {
 		mcux_lpc_ostick_compensate_system_timer();
 	}
+#endif /* CONFIG_SYSTEM_TIMER_RESET_BY_LPM */
 #endif
 }
 
@@ -345,7 +461,7 @@ static int sys_clock_driver_init(void)
 	irq_enable(DT_INST_IRQN(0));
 
 /* On some SoC's, OS Timer cannot wakeup from low power mode in standby modes */
-#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(standby)) && CONFIG_PM
+#if defined(MCUX_OS_TIMER_LPM_LEGACY)
 	counter_dev = DEVICE_DT_GET_OR_NULL(DT_INST_PHANDLE(0, deep_sleep_counter));
 	if (NULL != counter_dev) {
 		counter_max_val = counter_get_max_top_value(counter_dev);
