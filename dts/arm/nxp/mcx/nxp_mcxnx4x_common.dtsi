@@ -17,24 +17,14 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		cpu@0 {
-			compatible = "arm,cortex-m33f";
-			reg = <0>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			cpu-power-states = <&sleep &deepsleep &powerdown>;
-
-			mpu: mpu@e000ed90 {
-				compatible = "arm,armv8m-mpu";
-				reg = <0xe000ed90 0x40>;
-			};
-		};
-
-		cpu@1 {
-			compatible = "arm,cortex-m33";
-			reg = <1>;
-		};
+		/*
+		 * The cpu@0 / cpu@1 nodes are core-specific and therefore not
+		 * defined here: this file is shared by both the CPU0 and CPU1
+		 * images. Each core's cpu node (and its MPU) is added by the
+		 * per-core overlays nxp_mcxn94x_cm33_cpu0/cpu1.dtsi (and the
+		 * mcxn54x equivalents), matching the per-core devicetree layering
+		 * already used by nxp_rt11xx_cm7/cm4 and nxp_rt7xx_cm33_cpu0/cpu1.
+		 */
 	};
 
 	power-states {

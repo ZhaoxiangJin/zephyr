@@ -9,10 +9,6 @@
  */
 
 / {
-	cpus {
-		/delete-node/ cpu@1;
-	};
-
 	chosen {
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash;

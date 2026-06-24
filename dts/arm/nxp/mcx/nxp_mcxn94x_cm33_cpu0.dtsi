@@ -1,0 +1,28 @@
+/*
+ * Copyright 2026 NXP
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Per-core devicetree overlay for the MCXN94x CPU0 (primary Cortex-M33F)
+ * image. Included by a board's CPU0 dts after the base SoC dtsi
+ * (nxp_mcxn94x.dtsi or nxp_mcxn94x_ns.dtsi), which leaves the shared
+ * /cpus node empty.
+ */
+
+&cpus {
+	cpu0: cpu@0 {
+		compatible = "arm,cortex-m33f";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		cpu-power-states = <&sleep &deepsleep &powerdown>;
+
+		mpu: mpu@e000ed90 {
+			compatible = "arm,armv8m-mpu";
+			reg = <0xe000ed90 0x40>;
+		};
+	};
+};

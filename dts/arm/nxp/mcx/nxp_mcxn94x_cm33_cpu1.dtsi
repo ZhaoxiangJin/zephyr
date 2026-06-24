@@ -1,0 +1,19 @@
+/*
+ * Copyright 2026 NXP
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Per-core devicetree overlay for the MCXN94x CPU1 (secondary Cortex-M33)
+ * image. Included by a board's CPU1 dts after the base SoC dtsi, which
+ * leaves the shared /cpus node empty. From CPU1's own image it is the
+ * only/primary core.
+ */
+
+&cpus {
+	cpu1: cpu@1 {
+		compatible = "arm,cortex-m33";
+		reg = <1>;
+	};
+};

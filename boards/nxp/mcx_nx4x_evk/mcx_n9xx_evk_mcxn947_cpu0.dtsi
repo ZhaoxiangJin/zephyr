@@ -11,6 +11,7 @@
 /dts-v1/;
 
 #include "mcx_n9xx_evk.dtsi"
+#include <nxp/mcx/nxp_mcxn94x_cm33_cpu0.dtsi>
 #include "mcx_nx4x_evk_cpu0.dtsi"
 
 / {
