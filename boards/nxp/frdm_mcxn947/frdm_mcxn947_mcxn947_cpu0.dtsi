@@ -14,10 +14,6 @@
 #include "frdm_mcxn947.dtsi"
 
 / {
-	cpus {
-		/delete-node/ cpu@1;
-	};
-
 	chosen {
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash;
@@ -27,7 +23,6 @@
 		zephyr,console = &flexcomm4_lpuart4;
 		zephyr,shell-uart = &flexcomm4_lpuart4;
 		zephyr,canbus = &flexcan0;
-		zephyr,code-cpu1-partition = &slot1_partition;
 	};
 
 	aliases {
@@ -36,6 +31,18 @@
 		pwm-1 = &sc_timer;
 		rtc = &rtc;
 	};
+};
+
+/*
+ * Describe how CPU0 launches the secondary core. CPU1 boots in place (XIP)
+ * from slot1_partition; its base address is programmed into SYSCON->CPBOOT.
+ * Replaces the former "zephyr,code-cpu1-partition" /chosen property.
+ */
+&cpu1 {
+	compatible = "nxp,mcxn-cpu1", "arm,cortex-m33";
+	enable-method = "nxp,mcxn-cpu1";
+	execution-memory = <&slot1_partition>;
+	status = "disabled";
 };
 
 /*

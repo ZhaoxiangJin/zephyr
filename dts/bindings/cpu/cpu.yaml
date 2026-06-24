@@ -20,4 +20,15 @@ properties:
     description: d-cache line size
   enable-method:
     type: string
-    description: Enable method for cpu, either it is "psci" or "spin-table"
+    description: |
+      Method by which a CPU in a disabled state is enabled. This property is
+      required for CPUs whose status property has the value "disabled". The
+      value may be one of the following:
+      - "psci": ARM Power State Coordination Interface.
+      - "spin-table": Standard DTSpec spin-table; requires cpu-release-addr.
+      - "[vendor],[method]": Vendor-defined method. Vendor enable-method
+        bindings live in dts/bindings/cpu/enable-method/ and declare the
+        properties their method needs.
+
+      For details, see "3.8.1 General Properties of /cpus/cpu* nodes" in
+      Devicetree Specification v0.4.

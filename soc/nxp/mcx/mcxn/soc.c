@@ -55,9 +55,10 @@ static int second_core_boot(void)
 		 ~AHBSC_MASTER_SEC_ANTI_POL_REG_MASTER_SEC_LEVEL_ANTIPOL_LOCK_MASK) |
 		AHBSC_MASTER_SEC_ANTI_POL_REG_MASTER_SEC_LEVEL_ANTIPOL_LOCK(2);
 
-	/* Boot source for Core 1 from flash */
-	SYSCON->CPBOOT = ((uint32_t)(char *)DT_REG_ADDR(DT_CHOSEN(zephyr_code_cpu1_partition)) &
-			  SYSCON_CPBOOT_CPBOOT_MASK);
+	/* Boot source for Core 1 from flash, taken from CPU1's enable-method */
+	SYSCON->CPBOOT =
+		((uint32_t)(char *)DT_REG_ADDR(DT_PHANDLE(DT_NODELABEL(cpu1), execution_memory)) &
+		 SYSCON_CPBOOT_CPBOOT_MASK);
 
 	uint32_t temp = SYSCON->CPUCTRL;
 

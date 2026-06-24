@@ -1,0 +1,32 @@
+# Copyright 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+
+title: NXP MCXN (MCXNx4x) secondary CPU enable-method
+
+description: |
+  Enable-method for the secondary Cortex-M33 (CPU1) on NXP MCXNx4x dual-core
+  SoCs (e.g. MCXN947, MCXN547).
+
+  On these SoCs the primary core (CPU0) launches CPU1 by pointing the
+  SYSCON->CPBOOT register at the flash region CPU1 executes from and then
+  releasing CPU1 from reset. CPU1 executes in place (XIP) from that flash
+  region, so only an execution-memory phandle is required; no separate
+  load/copy step is performed.
+
+  This binding replaces the ad-hoc "zephyr,code-cpu1-partition" /chosen
+  property previously used to convey CPU1's boot address to CPU0.
+
+compatible: "nxp,mcxn-cpu1"
+
+include: cpu.yaml
+
+properties:
+  enable-method:
+    const: "nxp,mcxn-cpu1"
+
+  execution-memory:
+    type: phandle
+    required: true
+    description: |
+      Phandle to the flash memory region or partition CPU1 boots and executes
+      from. Its base address is programmed into SYSCON->CPBOOT.
