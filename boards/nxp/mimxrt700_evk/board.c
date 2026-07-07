@@ -358,6 +358,25 @@ void board_early_init_hook(void)
 	CLOCK_SetClkDiv(kCLOCK_DivOstimerClk, 1U);
 #endif
 
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(irtc_wake))
+	/*
+	 * The IRTC calendar/alarm runs on the always-on 32 kHz oscillator
+	 * (OSC32KNP). Bring it up in self-charge (low-power) mode and enable
+	 * the IRTC functional clock so the alarm keeps running across deep sleep
+	 * retention and can wake the compute domain.
+	 */
+	clock_osc32k_config_t osc32k_cfg = {
+		.bypass = false,
+		.monitorEnable = false,
+		.lowPowerMode = true,
+		.cap = kCLOCK_Osc32kCapPf16,
+	};
+
+	CLOCK_EnableOsc32K(&osc32k_cfg);
+	CLOCK_EnableClock(kCLOCK_Rtc);
+
+#endif
+
 #if ((DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(usb0)) && CONFIG_UDC_NXP_EHCI) || \
 	(DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(usbh0)) && (CONFIG_UHC_NXP_EHCI)))
 	/* Power on COM VDDN domain for USB */
