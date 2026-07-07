@@ -165,9 +165,7 @@ static int mcux_wuu_disable_wakeup_source(const struct device *dev, uint32_t sou
 
 static int mcux_wuu_check_wakeup_source_triggered(const struct device *dev, uint32_t source)
 {
-#if (defined(FSL_FEATURE_WUU_HAS_MF) && FSL_FEATURE_WUU_HAS_MF)
 	const struct mcux_wuu_config *config = (const struct mcux_wuu_config *)dev->config;
-#endif
 	struct mcux_wuu_data *data = (struct mcux_wuu_data *)dev->data;
 	struct wakeup_source_detail detail;
 	int ret = 0;
@@ -180,7 +178,17 @@ static int mcux_wuu_check_wakeup_source_triggered(const struct device *dev, uint
 		ret = -ENOTSUP;
 #endif
 	} else if (detail.type == NXP_WUU_SOURCE_TYPE_PIN) {
-		ret = (data->triggered_pin_sources & BIT(detail.index)) ? 1 : 0;
+		/*
+		 * Report the hardware flag together with the value the ISR
+		 * cached. On a transparent resume this query can run before the
+		 * WUU ISR has had a chance to execute (interrupts are still
+		 * locked by the PM core), so the cached value alone would miss
+		 * the wakeup that just happened.
+		 */
+		uint32_t pins =
+			data->triggered_pin_sources | WUU_GetExternalWakeUpPinsFlag(config->base);
+
+		ret = (pins & BIT(detail.index)) ? 1 : 0;
 	} else {
 		ret = -ENOTSUP;
 	}
@@ -190,11 +198,20 @@ static int mcux_wuu_check_wakeup_source_triggered(const struct device *dev, uint
 
 static int mcux_wuu_clear_wakeup_source_triggered(const struct device *dev, uint32_t id)
 {
+	const struct mcux_wuu_config *config = (const struct mcux_wuu_config *)dev->config;
 	struct mcux_wuu_data *data = dev->data;
 
 	if (NXP_WUU_IS_PIN_SOURCE(id)) {
+		uint32_t index = NXP_WUU_WAKEUP_SOURCE_DECODE_INDEX(id);
+
+		/*
+		 * Clear both the hardware flag and the ISR's cached copy, so a
+		 * WUU ISR that runs later (once interrupts are unlocked) does not
+		 * re-report a wakeup that has already been handled.
+		 */
+		WUU_ClearExternalWakeUpPinsFlag(config->base, BIT(index));
 		K_SPINLOCK(&data->lock) {
-			data->triggered_pin_sources &= ~BIT(NXP_WUU_WAKEUP_SOURCE_DECODE_INDEX(id));
+			data->triggered_pin_sources &= ~BIT(index);
 		}
 	}
 

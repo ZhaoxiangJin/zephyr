@@ -1,6 +1,6 @@
 .. zephyr:code-sample:: nxp_mcx_s2ram
    :name: NXP MCX suspend-to-RAM
-   :relevant-api: subsys_pm_states wuc_interface
+   :relevant-api: subsys_pm_states subsys_pm_device input_interface wuc_interface
 
    Suspend an NXP MCXA/MCXN SoC to RAM and resume on an LPTMR timer (or button)
    wakeup delivered through the WUU wakeup controller.
@@ -27,19 +27,25 @@ harness can confirm every wakeup happened. No console input is needed. Once the
 run is over the SoC stays awake (every PM state is locked, so it only ever
 suspends when the sample explicitly asks it to).
 
-The wakeup source is configured through the :ref:`WUC (Wakeup Controller)
-<wuc_api>` subsystem and is selectable at build time:
+The wakeup source is selectable at build time. Both branches show the intended
+layering: the application never programs the :ref:`WUC (Wakeup Controller)
+<wuc_api>` directly - a system component or a device driver does that on its
+behalf.
 
-* ``CONFIG_SAMPLE_S2RAM_WAKEUP_TIMER`` (default) arms LPTMR0 through the counter alarm
-  API and routes it to the core as a WUU internal-module wakeup source. The
-  worker thread blocks in :c:func:`k_sleep`, so the cycle repeats automatically.
+* ``CONFIG_SAMPLE_S2RAM_WAKEUP_TIMER`` (default) wakes on LPTMR0, the system-timer
+  companion, which arms itself as a WUU internal-module wakeup source during
+  initialization. The worker thread simply blocks in :c:func:`k_sleep`, so the
+  cycle repeats automatically with no wakeup-source code in the application.
 
 * ``CONFIG_SAMPLE_S2RAM_WAKEUP_BUTTON`` resumes on a WUU external pin transition (the
-  board's ``wakeup-button``, SW2). Deep Power Down resets the GPIO, so there is
-  no live GPIO edge to catch on resume - the press is latched only by the WUU.
-  The sample therefore treats the suspend-to-RAM resume itself as the wake signal
-  (no other wakeup source is armed), observed from a PM notifier that releases the
-  worker thread. Press SW2 to advance each cycle.
+  board's ``wakeup-button``, SW2). The application selects the button as a wakeup
+  source once with :c:func:`pm_device_wakeup_enable` and then simply waits for the
+  key's input event. Deep Power Down resets the GPIO, so there is no live GPIO edge
+  on resume - the press is latched only by the WUU - but the :dtcompatible:`gpio-keys`
+  driver hides that: it arms the WUU line on suspend and replays the latched press
+  as a normal input event on resume. The application code is therefore identical to
+  a portable STM32 or Nordic target and never references the WUU. Press SW2 to
+  advance each cycle.
 
 .. note::
 

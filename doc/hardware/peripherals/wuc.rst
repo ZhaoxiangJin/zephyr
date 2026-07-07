@@ -35,8 +35,9 @@ Example Devicetree fragment:
 Basic Operation
 ***************
 
-Applications typically obtain a :c:struct:`wuc_dt_spec` using
-:c:macro:`WUC_DT_SPEC_GET` and then enable or disable the wakeup source as
+A client (typically a peripheral driver, see `Relationship to device power
+management`_ below) obtains a :c:struct:`wuc_dt_spec` using
+:c:macro:`WUC_DT_SPEC_GET` and then enables or disables the wakeup source as
 needed.
 
 .. code-block:: c
@@ -53,7 +54,7 @@ needed.
 
    return wuc_enable_wakeup_source_dt(&button_wuc);
 
-If a driver supports it, applications can check and clear a wakeup source's
+If a driver supports it, clients can check and clear a wakeup source's
 triggered state. When not implemented, the APIs return ``-ENOSYS``.
 
 .. code-block:: c
@@ -65,6 +66,32 @@ triggered state. When not implemented, the APIs return ``-ENOSYS``.
    if (ret > 0) {
        (void)wuc_clear_wakeup_source_triggered_dt(&button_wuc);
    }
+
+Relationship to device power management
+***************************************
+
+The WUC API is a **driver-facing** building block, not the interface an
+application should normally use to pick its wakeup sources. Applications select
+wakeup sources with the portable :ref:`device wakeup capability
+<pm-device-wakeup>` API - :c:func:`pm_device_wakeup_enable` on a device whose
+Devicetree node has the ``wakeup-source`` property - and the device's driver
+translates that into the WUC calls above:
+
+* The peripheral's driver keeps a :c:struct:`wuc_dt_spec` obtained from its
+  ``wakeup-ctrls`` property. When the application has enabled the device as a
+  wakeup source (:c:func:`pm_device_wakeup_is_enabled`), the driver arms the
+  WUC line before the system enters the low-power state, and on exit uses
+  :c:func:`wuc_check_wakeup_source_triggered_dt` /
+  :c:func:`wuc_clear_wakeup_source_triggered_dt` to turn the latched wakeup back
+  into the peripheral's normal event.
+* Arming on every entry to the low-power state also transparently re-arms
+  silicon that clears its WUC configuration on each wakeup reset.
+
+The :dtcompatible:`gpio-keys` driver follows this pattern for buttons. Direct
+use of the WUC API is reserved for system components that are always their own
+wakeup source - such as the system-timer companion, which arms its own WUC line
+during initialization - or for applications that deliberately manage a wakeup
+source themselves.
 
 API Reference
 *************

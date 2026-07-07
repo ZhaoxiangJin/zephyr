@@ -67,6 +67,11 @@
 
 	gpio_keys {
 		compatible = "gpio-keys";
+		/* user_button_2 is routed to the WUU (see its wakeup-ctrls), so the
+		 * device can wake the SoC; enabled at run time with
+		 * pm_device_wakeup_enable().
+		 */
+		wakeup-source;
 
 		user_button_2: button_0 {
 			label = "User SW2";

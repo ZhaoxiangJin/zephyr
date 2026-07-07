@@ -8,7 +8,10 @@
 #include <zephyr/device.h>
 #include <zephyr/pm/pm.h>
 #include <zephyr/pm/policy.h>
-#include <zephyr/drivers/wuc.h>
+#include <zephyr/pm/device.h>
+#if defined(CONFIG_SAMPLE_S2RAM_WAKEUP_BUTTON)
+#include <zephyr/input/input.h>
+#endif
 
 #define WAKEUP_DELAY_S 3U
 
@@ -68,40 +71,29 @@ static void resume_console(void)
 }
 
 #if defined(CONFIG_SAMPLE_S2RAM_WAKEUP_BUTTON)
-/* In real-world applications, the button's wake-up event should be handled
- * via the driver hook, allowing the application to directly wait for input
- * events without needing to consider the existence of WUU. However, due to
- * the current lack of hook handling, we use the PM notifier to handle the
- * wake-up event.
+/*
+ * The wakeup button is one key of a gpio-keys device. The application selects
+ * that device as a wakeup source once with pm_device_wakeup_enable() and then
+ * just waits for the key's input event. Everything the NXP silicon needs behind
+ * the scenes - routing the pin to the always-on WUU, re-arming it on every
+ * suspend, and turning the latched wakeup back into an input event on resume -
+ * is done by the gpio-keys driver. The application code is therefore identical
+ * to what an STM32 or Nordic target would run.
  */
-static K_SEM_DEFINE(button_wakeup, 0, 1);
-static const struct wuc_dt_spec button = WUC_DT_SPEC_GET(DT_ALIAS(wakeup_button));
+static const struct device *const button_dev = DEVICE_DT_GET(DT_PARENT(DT_ALIAS(wakeup_button)));
 
-static void on_pm_state_exit(enum pm_state state)
+static K_SEM_DEFINE(button_wakeup, 0, 1);
+
+static void button_input_cb(struct input_event *evt, void *user_data)
 {
-	if (state == PM_STATE_SUSPEND_TO_RAM) {
+	ARG_UNUSED(user_data);
+
+	if ((evt->type == INPUT_EV_KEY) && (evt->value == 1)) {
 		k_sem_give(&button_wakeup);
 	}
 }
-
-static struct pm_notifier button_pm_notifier = {
-	.state_exit = on_pm_state_exit,
-};
-#else
-/* LPTMR0 (the system-timer companion) reaches the core as a WUU internal-module
- * wakeup source.
- */
-static const struct wuc_dt_spec timer_wakeup = WUC_DT_SPEC_GET(DT_NODELABEL(lptmr0));
+INPUT_CALLBACK_DEFINE(button_dev, button_input_cb, NULL);
 #endif /* CONFIG_SAMPLE_S2RAM_WAKEUP_BUTTON */
-
-static void arm_wakeup_source(void)
-{
-#if defined(CONFIG_SAMPLE_S2RAM_WAKEUP_BUTTON)
-	(void)wuc_enable_wakeup_source_dt(&button);
-#else
-	(void)wuc_enable_wakeup_source_dt(&timer_wakeup);
-#endif
-}
 
 static void app_thread(void *p1, void *p2, void *p3)
 {
@@ -123,19 +115,15 @@ static void app_thread(void *p1, void *p2, void *p3)
 		/* Let the UART finish shifting out the line above before DPD cuts its clock. */
 		k_busy_wait(2000);
 
-#if defined(CONFIG_SOC_SERIES_MCXAXX6) || defined(CONFIG_SOC_SERIES_MCXAXX7)
-		/* On MCXAxx6 / MCXAxx7 the Deep Power Down wakeup reset clears the
-		 * WUU wakeup-source configuration, so the source has to be re-armed
-		 * before every entry.
-		 */
-		arm_wakeup_source();
-#endif
-
 		pm_state_force(0U, &(struct pm_state_info){PM_STATE_SUSPEND_TO_RAM, 0, 0});
 #if defined(CONFIG_SAMPLE_S2RAM_WAKEUP_BUTTON)
-		/* Block until SW2 wakes the SoC; the PM notifier gives this. */
+		/* Wait for the button press, delivered as a normal input event. */
 		k_sem_take(&button_wakeup, K_FOREVER);
 #else
+		/* The system-timer companion (LPTMR0) wakes the SoC after the sleep;
+		 * it arms itself as a WUU wakeup source, so no application action is
+		 * needed here.
+		 */
 		k_sleep(K_SECONDS(WAKEUP_DELAY_S));
 #endif
 
@@ -162,13 +150,16 @@ int main(void)
 	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
 	pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_RAM, PM_ALL_SUBSTATES);
 
-	/* The application selects and enables its own wakeup source through the
-	 * WUC subsystem; the SoC power code does not hard-code one.
-	 */
 #if defined(CONFIG_SAMPLE_S2RAM_WAKEUP_BUTTON)
-	pm_notifier_register(&button_pm_notifier);
+	/* Select the button as the wakeup source once. The gpio-keys driver keeps
+	 * it armed across every suspend/resume cycle - including on silicon that
+	 * clears its wakeup configuration on each wakeup - with no further action.
+	 */
+	if (!pm_device_wakeup_enable(button_dev, true)) {
+		printk("Failed to enable %s as a wakeup source\n", button_dev->name);
+		return 0;
+	}
 #endif
-	arm_wakeup_source();
 
 	k_thread_create(&app_thread_data, app_stack, APP_STACK_SIZE, app_thread,
 			NULL, NULL, NULL, APP_PRIORITY, 0, K_NO_WAIT);

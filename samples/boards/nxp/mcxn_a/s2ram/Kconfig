@@ -16,8 +16,12 @@ config SAMPLE_S2RAM_WAKEUP_TIMER
 
 config SAMPLE_S2RAM_WAKEUP_BUTTON
 	bool "Button wakeup"
+	select INPUT
+	select PM_DEVICE
 	help
-	  Wake on a user button press.
+	  Wake on a user button press. The button is selected as a wakeup source
+	  through pm_device_wakeup_enable() and its press arrives as an input
+	  event; the gpio-keys driver hides the WUU wakeup controller.
 
 endchoice
 
