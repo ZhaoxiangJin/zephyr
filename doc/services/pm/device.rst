@@ -683,6 +683,8 @@ can hold the device power policy lock while that path is active. The driver
 should mask or disable the interrupt source before releasing the lock when the
 path is no longer active.
 
+.. _pm-device-wakeup:
+
 Wakeup capability
 *****************
 
@@ -718,6 +720,53 @@ later calling :c:func:`pm_device_wakeup_enable`.
    devices that should not be suspended.
    It is responsibility of driver or the application to do any additional
    configuration required by the device to support it.
+
+Capability versus policy
+=========================
+
+Wakeup support is split across two independent flags, keeping the hardware
+fact and the application choice cleanly separated:
+
+* **Capability** (``wakeup-source`` in devicetree) records whether a device is
+  *able* to wake the system. It is a compile-time hardware fact, set by the SoC
+  or board author, and never changes at run time.
+* **Policy** (:c:func:`pm_device_wakeup_enable`) records whether the
+  application *wants* that device to wake the system this time. It is a runtime
+  decision. :c:func:`pm_device_wakeup_enable` first checks the capability flag
+  and returns ``false`` for a device that is not ``wakeup-source`` capable.
+
+The enabled flag lives in the device's :c:struct:`pm_device_base`, so on a SoC
+whose RAM is retained across the low-power state the application's selection
+survives the suspend/resume cycle: the application enables a wakeup source once
+and does not have to re-select it on every cycle.
+
+The driver's role
+=================
+
+``wakeup-source`` alone does not arm any hardware. Whatever a device must do to
+actually latch a wake event in the target low-power state belongs in the
+device's :ref:`PM action handler <pm-device-runtime-pm>`, gated on
+:c:func:`pm_device_wakeup_is_enabled`:
+
+* On some SoCs a peripheral's own interrupt keeps working in the low-power
+  state, so the driver has nothing extra to do.
+* On SoCs where the peripheral is powered down, its interrupt can no longer
+  catch a wake event. The driver must instead route the source to an
+  always-on wakeup unit and arm it on suspend, then, on resume, translate the
+  latched event back into the peripheral's normal event so the application sees
+  no difference. Doing this from the ``PM_DEVICE_ACTION_SUSPEND`` handler also
+  transparently re-arms silicon that clears its wakeup configuration on every
+  wakeup reset, because the handler runs on every suspend.
+
+Because the application only ever calls :c:func:`pm_device_wakeup_enable` and
+waits for the device's normal events, the same application code is portable
+across SoCs that need this extra step and SoCs that do not.
+
+For example, the :dtcompatible:`gpio-keys` driver arms an NXP
+:ref:`WUC (Wakeup Controller) <wuc_api>` line, described by a per-key
+``wakeup-ctrls`` property, from its PM action handler and replays the press as
+an input event on resume, so an application selecting a button as a wakeup
+source uses only :c:func:`pm_device_wakeup_enable` and the input subsystem.
 
 Examples
 ********

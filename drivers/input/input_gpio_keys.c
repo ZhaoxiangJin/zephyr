@@ -15,6 +15,19 @@
 #include <zephyr/pm/device_runtime.h>
 #include <zephyr/sys/atomic.h>
 
+/*
+ * Wakeup-controller support: a key can be routed to an always-on wakeup
+ * controller (the `wakeup-ctrls` property) so it wakes the SoC from a
+ * low-power state that powers the GPIO down. It only makes sense with system
+ * power management, so gate it on both.
+ */
+#if defined(CONFIG_WUC) && defined(CONFIG_PM)
+#define GPIO_KEYS_WAKEUP 1
+#include <zephyr/drivers/wuc.h>
+#include <zephyr/pm/pm.h>
+#include <zephyr/init.h>
+#endif
+
 LOG_MODULE_REGISTER(gpio_keys, CONFIG_INPUT_LOG_LEVEL);
 
 /* Values for property `zephyr,suspend-action` */
@@ -36,6 +49,14 @@ struct gpio_keys_pin_config {
 	struct gpio_dt_spec spec;
 	/** Zephyr code from devicetree */
 	uint32_t zephyr_code;
+#ifdef GPIO_KEYS_WAKEUP
+	/**
+	 * Wakeup controller line this key is routed to, from the optional
+	 * `wakeup-ctrls` property. `dev == NULL` when the key cannot wake the
+	 * SoC through a wakeup controller.
+	 */
+	struct wuc_dt_spec wuc;
+#endif
 };
 
 struct gpio_keys_pin_data {
@@ -322,10 +343,9 @@ static int gpio_keys_pm_action(const struct device *dev,
 		     "zephyr-code must be specified to use the input-gpio-keys driver");
 
 #define GPIO_KEYS_CFG_DEF(node_id)                                                                 \
-	{                                                                                          \
-		.spec = GPIO_DT_SPEC_GET(node_id, gpios),                                          \
-		.zephyr_code = DT_PROP(node_id, zephyr_code),                                      \
-	}
+	{.spec = GPIO_DT_SPEC_GET(node_id, gpios),                                                 \
+	 .zephyr_code = DT_PROP(node_id, zephyr_code),                                             \
+	 IF_ENABLED(GPIO_KEYS_WAKEUP, (.wuc = WUC_DT_SPEC_GET_OR(node_id, {0}),)) }
 
 #define GPIO_KEYS_INIT(i)                                                                          \
 	DT_INST_FOREACH_CHILD_STATUS_OKAY(i, GPIO_KEYS_CFG_CHECK);                                 \
@@ -356,3 +376,96 @@ static int gpio_keys_pm_action(const struct device *dev,
 			      POST_KERNEL, CONFIG_INPUT_INIT_PRIORITY, NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(GPIO_KEYS_INIT)
+
+#ifdef GPIO_KEYS_WAKEUP
+/*
+ * On SoCs where the GPIO/PORT is powered down in the target low-power state the
+ * GPIO interrupt can no longer catch a wake edge, so keys routed to an always-on
+ * wakeup controller must be armed on that controller before the SoC enters the
+ * state, and the event it latched must be replayed on exit.
+ *
+ * A device PM action cannot do this: gpio-keys enables runtime PM and, once the
+ * application selects it as a wakeup source, it is skipped by system-managed
+ * suspend, so its PM action never runs at the low-power boundary. A PM notifier
+ * does run on every transition - including a forced suspend-to-RAM - regardless
+ * of device suspend state, so use one. Arming on every entry also transparently
+ * re-arms silicon that clears its wakeup-controller configuration on each wakeup
+ * reset.
+ */
+static void gpio_keys_wuc_arm(const struct device *dev)
+{
+	const struct gpio_keys_config *cfg = dev->config;
+
+	if (!device_is_ready(dev) || !pm_device_wakeup_is_enabled(dev)) {
+		return;
+	}
+
+	for (int i = 0; i < cfg->num_keys; i++) {
+		const struct wuc_dt_spec *wuc = &cfg->pin_cfg[i].wuc;
+
+		if (wuc->dev != NULL) {
+			(void)wuc_enable_wakeup_source_dt(wuc);
+		}
+	}
+}
+
+static void gpio_keys_wuc_replay(const struct device *dev)
+{
+	const struct gpio_keys_config *cfg = dev->config;
+
+	if (!device_is_ready(dev) || !pm_device_wakeup_is_enabled(dev)) {
+		return;
+	}
+
+	for (int i = 0; i < cfg->num_keys; i++) {
+		const struct wuc_dt_spec *wuc = &cfg->pin_cfg[i].wuc;
+
+		if ((wuc->dev != NULL) && (wuc_check_wakeup_source_triggered_dt(wuc) == 1)) {
+			/*
+			 * No live GPIO edge survives the power-down, so deliver the
+			 * press the wakeup controller latched as a normal input event.
+			 * The application never has to know a wakeup controller was
+			 * involved. K_NO_WAIT keeps this safe in the notifier context.
+			 */
+			input_report_key(dev, cfg->pin_cfg[i].zephyr_code, 1, false, K_NO_WAIT);
+			input_report_key(dev, cfg->pin_cfg[i].zephyr_code, 0, true, K_NO_WAIT);
+			(void)wuc_clear_wakeup_source_triggered_dt(wuc);
+		}
+	}
+}
+
+#define GPIO_KEYS_DEV_GET(i) DEVICE_DT_INST_GET(i),
+static const struct device *const gpio_keys_devices[] = {
+	DT_INST_FOREACH_STATUS_OKAY(GPIO_KEYS_DEV_GET)};
+
+static void gpio_keys_pm_state_entry(enum pm_state state)
+{
+	ARG_UNUSED(state);
+
+	for (size_t i = 0; i < ARRAY_SIZE(gpio_keys_devices); i++) {
+		gpio_keys_wuc_arm(gpio_keys_devices[i]);
+	}
+}
+
+static void gpio_keys_pm_state_exit(enum pm_state state)
+{
+	ARG_UNUSED(state);
+
+	for (size_t i = 0; i < ARRAY_SIZE(gpio_keys_devices); i++) {
+		gpio_keys_wuc_replay(gpio_keys_devices[i]);
+	}
+}
+
+static struct pm_notifier gpio_keys_pm_notifier = {
+	.state_entry = gpio_keys_pm_state_entry,
+	.state_exit = gpio_keys_pm_state_exit,
+};
+
+static int gpio_keys_pm_notifier_init(void)
+{
+	pm_notifier_register(&gpio_keys_pm_notifier);
+	return 0;
+}
+
+SYS_INIT(gpio_keys_pm_notifier_init, APPLICATION, 0);
+#endif /* GPIO_KEYS_WAKEUP */
