@@ -6,6 +6,7 @@
 
 #include <zephyr/device.h>
 #include <zephyr/pm/device.h>
+#include <zephyr/pm/wakeup.h>
 #include <zephyr/sys/iterable_sections.h>
 
 #include <zephyr/logging/log.h>
@@ -322,7 +323,21 @@ bool pm_device_wakeup_enable(const struct device *dev, bool enable)
 		new_flags = flags & ~BIT(PM_DEVICE_FLAG_WS_ENABLED);
 	}
 
-	return atomic_cas(&pm->flags, flags, new_flags);
+	if (!atomic_cas(&pm->flags, flags, new_flags)) {
+		return false;
+	}
+
+	/*
+	 * Bridge to the generic, PM-independent wakeup-source framework: a
+	 * legacy pm_device_wakeup_enable() caller also selects (and arms the
+	 * backend of) a registered wakeup source for this device. No-op if the
+	 * device did not register one, or if CONFIG_WAKEUP_SOURCE is disabled.
+	 */
+	if (IS_ENABLED(CONFIG_WAKEUP_SOURCE)) {
+		(void)wakeup_source_enable(dev, enable);
+	}
+
+	return true;
 }
 
 bool pm_device_wakeup_is_enabled(const struct device *dev)
