@@ -1,0 +1,10 @@
+common:
+  tags:
+    - pm
+    - wakeup
+  harness: ztest
+tests:
+  subsys.pm.wakeup_source:
+    # Needs a node with `wakeup-source` bound to a real gpio device.
+    platform_allow:
+      - frdm_mcxn947/mcxn947/cpu0

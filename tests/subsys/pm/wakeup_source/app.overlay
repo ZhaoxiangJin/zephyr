@@ -1,0 +1,11 @@
+/*
+ * Copyright 2026 NXP
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Mark a real device as a wakeup source for the test. */
+&gpio0 {
+	status = "okay";
+	wakeup-source;
+};

@@ -78,6 +78,15 @@ config WAKEUP_SOURCE
 	  for both the PM suspend path and sys_poweroff().
 
 if WAKEUP_SOURCE
+
+config WAKEUP_SOURCE_INIT_PRIORITY
+	int "Wakeup source registration init priority"
+	default 90
+	help
+	  POST_KERNEL SYS_INIT priority at which devicetree-defined wakeup
+	  sources (WAKEUP_SOURCE_DT_DEFINE) register themselves. Must run before
+	  the application selects a wakeup source.
+
 module = WAKEUP_SOURCE
 module-str = Wakeup Source
 source "subsys/logging/Kconfig.template.log_config"

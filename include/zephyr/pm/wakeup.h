@@ -35,8 +35,11 @@
 #include <stdbool.h>
 
 #include <zephyr/device.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/init.h>
 #include <zephyr/sys/slist.h>
 #include <zephyr/sys/atomic.h>
+#include <zephyr/sys/util.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -85,6 +88,8 @@ struct wakeup_source {
 	/** Runtime flags (internal): enabled bit. */
 	atomic_t flags;
 };
+
+#if defined(CONFIG_WAKEUP_SOURCE) || defined(__DOXYGEN__)
 
 /**
  * @brief Register a wakeup source.
@@ -155,6 +160,95 @@ void wakeup_source_arm_all(void);
  * @brief Disarm every enabled wakeup source's backend.
  */
 void wakeup_source_disarm_all(void);
+
+/**
+ * @brief Instantiate and auto-register a wakeup source for a devicetree node.
+ *
+ * Intended to be called unconditionally by the driver that owns @p node_id.
+ * It expands to nothing unless the node has the `wakeup-source` property, so a
+ * board opts a device in simply by adding `wakeup-source;` to its node. The
+ * source is bound to @p node_id 's device and registered at @ref SYS_INIT time.
+ *
+ * @param node_id  devicetree node identifier of the wakeup-capable device.
+ * @param _set_wake optional @ref wakeup_source_set_wake_t backend (or NULL for
+ *                  sources that wake "for free" from a surviving interrupt).
+ * @param _data    backend private data passed to @p _set_wake (or NULL).
+ */
+#define WAKEUP_SOURCE_DT_DEFINE(node_id, _set_wake, _data)                                         \
+	COND_CODE_1(DT_PROP(node_id, wakeup_source),						\
+		    (Z_WAKEUP_SOURCE_DEFINE(node_id, _set_wake, _data)), ())
+
+/** @brief Like WAKEUP_SOURCE_DT_DEFINE() for a `DT_DRV_COMPAT` instance. */
+#define WAKEUP_SOURCE_DT_INST_DEFINE(inst, _set_wake, _data)                                       \
+	WAKEUP_SOURCE_DT_DEFINE(DT_DRV_INST(inst), _set_wake, _data)
+
+/** @cond INTERNAL_HIDDEN */
+#define Z_WAKEUP_SOURCE_DEFINE(node_id, _set_wake, _data)                                          \
+	static struct wakeup_source _CONCAT(__wakeup_source_, DT_DEP_ORD(node_id)) = {             \
+		.dev = DEVICE_DT_GET(node_id),                                                     \
+		.name = DT_NODE_FULL_NAME(node_id),                                                \
+		.set_wake = (_set_wake),                                                           \
+		.backend_data = (_data),                                                           \
+	};                                                                                         \
+	static int _CONCAT(__wakeup_source_reg_, DT_DEP_ORD(node_id))(void)                        \
+	{                                                                                          \
+		wakeup_source_register(&_CONCAT(__wakeup_source_, DT_DEP_ORD(node_id)));           \
+		return 0;                                                                          \
+	}                                                                                          \
+	SYS_INIT(_CONCAT(__wakeup_source_reg_, DT_DEP_ORD(node_id)), POST_KERNEL,                  \
+		 CONFIG_WAKEUP_SOURCE_INIT_PRIORITY)
+/** @endcond */
+
+#else /* !CONFIG_WAKEUP_SOURCE */
+
+/* Stubs so callers (e.g. the pm_device bridge) link when the framework is off. */
+static inline void wakeup_source_register(struct wakeup_source *ws)
+{
+	ARG_UNUSED(ws);
+}
+
+static inline void wakeup_source_unregister(struct wakeup_source *ws)
+{
+	ARG_UNUSED(ws);
+}
+
+static inline struct wakeup_source *wakeup_source_get(const struct device *dev)
+{
+	ARG_UNUSED(dev);
+	return NULL;
+}
+
+static inline bool wakeup_source_enable(const struct device *dev, bool enable)
+{
+	ARG_UNUSED(dev);
+	ARG_UNUSED(enable);
+	return false;
+}
+
+static inline bool wakeup_source_is_enabled(const struct device *dev)
+{
+	ARG_UNUSED(dev);
+	return false;
+}
+
+static inline bool wakeup_source_is_capable(const struct device *dev)
+{
+	ARG_UNUSED(dev);
+	return false;
+}
+
+static inline void wakeup_source_arm_all(void)
+{
+}
+
+static inline void wakeup_source_disarm_all(void)
+{
+}
+
+#define WAKEUP_SOURCE_DT_DEFINE(node_id, _set_wake, _data)
+#define WAKEUP_SOURCE_DT_INST_DEFINE(inst, _set_wake, _data)
+
+#endif /* CONFIG_WAKEUP_SOURCE */
 
 /** @} */
 
