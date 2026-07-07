@@ -7,6 +7,9 @@ endif()
 
 add_subdirectory(policy)
 
+# Wakeup-source core is independent of CONFIG_PM / CONFIG_PM_DEVICE.
+zephyr_sources_ifdef(CONFIG_WAKEUP_SOURCE wakeup.c)
+
 zephyr_sources_ifdef(CONFIG_PM_DEVICE device.c)
 zephyr_sources_ifdef(CONFIG_PM_DEVICE_RUNTIME device_runtime.c)
 zephyr_sources_ifdef(CONFIG_PM_DEVICE_SHELL pm_shell.c)

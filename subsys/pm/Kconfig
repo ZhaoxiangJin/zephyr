@@ -68,6 +68,21 @@ config PM_STATE_SET_IRQ_UNLOCKED
 
 rsource "policy/Kconfig"
 
+config WAKEUP_SOURCE
+	bool "Generic wakeup-source framework"
+	help
+	  Portable, vendor-neutral wakeup-source management, independent of device
+	  power management (CONFIG_PM_DEVICE). An application selects a device as a
+	  system wakeup source with wakeup_source_enable(); the arming of any
+	  hardware wakeup unit is delegated to an optional per-source backend. Works
+	  for both the PM suspend path and sys_poweroff().
+
+if WAKEUP_SOURCE
+module = WAKEUP_SOURCE
+module-str = Wakeup Source
+source "subsys/logging/Kconfig.template.log_config"
+endif # WAKEUP_SOURCE
+
 if PM
 
 module = PM
