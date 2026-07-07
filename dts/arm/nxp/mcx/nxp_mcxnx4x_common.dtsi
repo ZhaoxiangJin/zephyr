@@ -1166,6 +1166,10 @@
 		prescale-glitch-filter-bypass;
 		clk-source = <1>;
 		resolution = <32>;
+		/* Reaches the core through the WUU (module 6), so it can wake the
+		 * SoC; enabled at run time with pm_device_wakeup_enable().
+		 */
+		wakeup-source;
 		wakeup-ctrls = <&wuu NXP_WUU_MODULE_6_INT>;
 	};
 
