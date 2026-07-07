@@ -176,7 +176,7 @@ void wakeup_source_disarm_all(void);
  */
 #define WAKEUP_SOURCE_DT_DEFINE(node_id, _set_wake, _data)                                         \
 	COND_CODE_1(DT_PROP(node_id, wakeup_source),						\
-		    (Z_WAKEUP_SOURCE_DEFINE(node_id, _set_wake, _data)), ())
+		    (Z_WAKEUP_SOURCE_DEFINE(node_id, _set_wake, _data);), ())
 
 /** @brief Like WAKEUP_SOURCE_DT_DEFINE() for a `DT_DRV_COMPAT` instance. */
 #define WAKEUP_SOURCE_DT_INST_DEFINE(inst, _set_wake, _data)                                       \

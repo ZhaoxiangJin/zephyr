@@ -25,7 +25,7 @@ static int fake_set_wake(const struct wakeup_source *ws, bool enable)
 }
 
 /* Driver-style registration for the wakeup-capable node. */
-WAKEUP_SOURCE_DT_DEFINE(WS_NODE, fake_set_wake, NULL);
+WAKEUP_SOURCE_DT_DEFINE(WS_NODE, fake_set_wake, NULL)
 
 ZTEST(wakeup_source, test_capability_from_devicetree)
 {
