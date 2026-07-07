@@ -322,7 +322,25 @@ bool pm_device_wakeup_enable(const struct device *dev, bool enable)
 		new_flags = flags & ~BIT(PM_DEVICE_FLAG_WS_ENABLED);
 	}
 
-	return atomic_cas(&pm->flags, flags, new_flags);
+	if (!atomic_cas(&pm->flags, flags, new_flags)) {
+		return false;
+	}
+
+	/*
+	 * Give the driver a chance to (dis)arm its wakeup unit right away.
+	 * This is not a device power-state transition, so it is dispatched
+	 * straight to the callback rather than through pm_device_action_run()
+	 * and its state machine. Arming eagerly here (rather than from a
+	 * suspend hook) is what makes a wakeup source work across sys_poweroff(),
+	 * which has no device hooks at all. A driver that needs no explicit
+	 * arming simply returns -ENOSYS.
+	 */
+	if (pm->action_cb != NULL) {
+		(void)pm->action_cb(dev, enable ? PM_DEVICE_ACTION_WAKEUP_ARM
+						: PM_DEVICE_ACTION_WAKEUP_DISARM);
+	}
+
+	return true;
 }
 
 bool pm_device_wakeup_is_enabled(const struct device *dev)

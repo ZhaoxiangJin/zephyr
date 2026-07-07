@@ -175,6 +175,26 @@ enum pm_device_action {
 	 * domain has been powered on.
 	 */
 	PM_DEVICE_ACTION_TURN_ON,
+	/**
+	 * Arm this device as a wakeup source.
+	 *
+	 * @details Triggered by pm_device_wakeup_enable() (and on every system
+	 * suspend for a wakeup-enabled device) so the driver can route the
+	 * device to an always-on wakeup unit and arm it. Unlike SUSPEND/RESUME
+	 * this is not a device power-state transition, so it is dispatched
+	 * directly to the driver callback and does not change pm_device_state.
+	 * A driver that needs no explicit arming returns -ENOSYS.
+	 *
+	 * @note EXPERIMENTAL (POC for RFC): API shape under discussion.
+	 */
+	PM_DEVICE_ACTION_WAKEUP_ARM,
+	/**
+	 * Disarm this device as a wakeup source. Counterpart to
+	 * @ref PM_DEVICE_ACTION_WAKEUP_ARM.
+	 *
+	 * @note EXPERIMENTAL (POC for RFC): API shape under discussion.
+	 */
+	PM_DEVICE_ACTION_WAKEUP_DISARM,
 };
 
 /**
