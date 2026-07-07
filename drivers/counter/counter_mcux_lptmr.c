@@ -18,6 +18,19 @@
 #include <zephyr/spinlock.h>
 
 /*
+ * Optional: when the LPTMR is routed to a WUU/LLWU line (`wakeup-ctrls`) and
+ * marked `wakeup-source`, register it with the generic wakeup-source framework
+ * so an application can select it with wakeup_source_enable(). Compiles out
+ * without CONFIG_WUC / CONFIG_WAKEUP_SOURCE.
+ */
+#if defined(CONFIG_WUC) && defined(CONFIG_WAKEUP_SOURCE)
+#include <zephyr/drivers/wuc_wakeup.h>
+#define MCUX_LPTMR_WAKEUP_SOURCE_DEFINE(n) WUC_WAKEUP_SOURCE_DT_INST_DEFINE(n)
+#else
+#define MCUX_LPTMR_WAKEUP_SOURCE_DEFINE(n)
+#endif
+
+/*
  * Skip the instance reserved as the system timer via zephyr,system-timer.
  * When both drivers are enabled, they must operate on separate hardware.
  */
@@ -572,7 +585,9 @@ static DEVICE_API(counter, mcux_lptmr_driver_api) = {
 		&mcux_lptmr_data_##n,						\
 		&mcux_lptmr_config_##n,						\
 		POST_KERNEL, CONFIG_COUNTER_INIT_PRIORITY,			\
-		&mcux_lptmr_driver_api);
+		&mcux_lptmr_driver_api);					\
+										\
+	MCUX_LPTMR_WAKEUP_SOURCE_DEFINE(n)
 
 #define COUNTER_MCUX_LPTMR_DEVICE_INIT_COND(n)				\
 	COND_CODE_0(COUNTER_MCUX_LPTMR_IS_SYSTEM_TIMER(n),		\
