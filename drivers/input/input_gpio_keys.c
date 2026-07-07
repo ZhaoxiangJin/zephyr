@@ -15,6 +15,20 @@
 #include <zephyr/pm/device_runtime.h>
 #include <zephyr/sys/atomic.h>
 
+/*
+ * Optional: on SoCs where the GPIO is powered down in the target low-power
+ * state, a key routed to an always-on wakeup controller (`wakeup-ctrls`) can
+ * still wake the system. When the gpio-keys node is marked `wakeup-source`,
+ * register it with the generic wakeup-source framework and arm each routed key
+ * through the WUC backend. Compiles out without CONFIG_WUC / CONFIG_WAKEUP_SOURCE.
+ */
+#if defined(CONFIG_WUC) && defined(CONFIG_WAKEUP_SOURCE)
+#define GPIO_KEYS_WAKEUP 1
+#include <zephyr/drivers/wuc.h>
+#include <zephyr/drivers/wuc_wakeup.h>
+#include <zephyr/pm/wakeup.h>
+#endif
+
 LOG_MODULE_REGISTER(gpio_keys, CONFIG_INPUT_LOG_LEVEL);
 
 /* Values for property `zephyr,suspend-action` */
@@ -36,6 +50,10 @@ struct gpio_keys_pin_config {
 	struct gpio_dt_spec spec;
 	/** Zephyr code from devicetree */
 	uint32_t zephyr_code;
+#ifdef GPIO_KEYS_WAKEUP
+	/** Wakeup controller line this key is routed to (from `wakeup-ctrls`). */
+	struct wuc_dt_spec wuc;
+#endif
 };
 
 struct gpio_keys_pin_data {
@@ -325,7 +343,34 @@ static int gpio_keys_pm_action(const struct device *dev,
 	{                                                                                          \
 		.spec = GPIO_DT_SPEC_GET(node_id, gpios),                                          \
 		.zephyr_code = DT_PROP(node_id, zephyr_code),                                      \
+		IF_ENABLED(GPIO_KEYS_WAKEUP, (.wuc = WUC_DT_SPEC_GET_OR(node_id, {0}),))            \
 	}
+
+#ifdef GPIO_KEYS_WAKEUP
+/* Wakeup-source backend: arm/disarm the WUU line of every routed key. */
+static int gpio_keys_set_wake(const struct wakeup_source *ws, bool enable)
+{
+	const struct gpio_keys_config *cfg = ws->dev->config;
+
+	for (int i = 0; i < cfg->num_keys; i++) {
+		const struct wuc_dt_spec *wuc = &cfg->pin_cfg[i].wuc;
+
+		if (wuc->dev != NULL) {
+			if (enable) {
+				(void)wuc_enable_wakeup_source_dt(wuc);
+			} else {
+				(void)wuc_disable_wakeup_source_dt(wuc);
+			}
+		}
+	}
+
+	return 0;
+}
+
+#define GPIO_KEYS_WAKEUP_DEFINE(i) WAKEUP_SOURCE_DT_INST_DEFINE(i, gpio_keys_set_wake, NULL)
+#else
+#define GPIO_KEYS_WAKEUP_DEFINE(i)
+#endif
 
 #define GPIO_KEYS_INIT(i)                                                                          \
 	DT_INST_FOREACH_CHILD_STATUS_OKAY(i, GPIO_KEYS_CFG_CHECK);                                 \
@@ -353,6 +398,8 @@ static int gpio_keys_pm_action(const struct device *dev,
 												   \
 	DEVICE_DT_INST_DEFINE(i, &gpio_keys_init, PM_DEVICE_DT_INST_GET(i),                        \
 			      &gpio_keys_data_##i, &gpio_keys_config_##i,                          \
-			      POST_KERNEL, CONFIG_INPUT_INIT_PRIORITY, NULL);
+			      POST_KERNEL, CONFIG_INPUT_INIT_PRIORITY, NULL);                      \
+											   \
+	GPIO_KEYS_WAKEUP_DEFINE(i)
 
 DT_INST_FOREACH_STATUS_OKAY(GPIO_KEYS_INIT)
