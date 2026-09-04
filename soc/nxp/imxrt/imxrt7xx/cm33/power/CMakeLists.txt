@@ -8,6 +8,7 @@ zephyr_sources_ifdef(CONFIG_SOC_IMXRT7XX_POWER_DOMAIN_COMPUTE power_modes_comput
 zephyr_sources_ifdef(CONFIG_SOC_IMXRT7XX_POWER_DOMAIN_SENSE   power_modes_sense.c)
 zephyr_sources_ifdef(CONFIG_PM                                power.c)
 
-# Shared low-power entry sequence, used by both domain modules. This directory
-# is only added for PM or POWEROFF builds, so it needs no guard of its own.
+# Shared low-power entry sequence, used by both domain modules and the poweroff
+# path. This directory is only added for PM or POWEROFF builds, so it needs no
+# guard of its own.
 zephyr_sources(power_common.c)

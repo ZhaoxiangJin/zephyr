@@ -8,7 +8,7 @@
  * This translation unit supplies the Compute domain instance and its mode table;
  * all sequencing lives in power_common.c. The Compute domain owns the VDD2 rails,
  * runs XIP, has the HiFi DSP, and supports DSR (STANDBY) in addition to deep
- * sleep.
+ * sleep and DPD/FDPD.
  */
 
 #include <zephyr/kernel.h>
@@ -61,6 +61,7 @@
 	SLEEPCON0_SLEEPCFG_PLLANA_PD_MASK | SLEEPCON0_SLEEPCFG_PLLLDO_PD_MASK | \
 	SLEEPCON0_SLEEPCFG_AUDPLLANA_PD_MASK | SLEEPCON0_SLEEPCFG_AUDPLLLDO_PD_MASK)
 
+#if defined(CONFIG_PM)
 /*
  * Both PLLs stay powered across the window. The low-power entry/exit path has no
  * PLL re-lock step, so a powered-down PLL would come back unlocked and leave the
@@ -90,17 +91,47 @@
 static const struct power_mode_desc compute_deep_sleep = {
 	.collapse_vdd2_core = false,
 	.full_dsr = false,
+	.override = OVR_NONE,
 	.keep = COMPUTE_DEEP_KEEP,
 	.pmic_mode = 1U,
+	.uses_arch_pm_hooks = true,
+	.returns = true,
 };
 
 static const struct power_mode_desc compute_dsr = {
 	.collapse_vdd2_core = true,
 	.full_dsr = true,
+	.override = OVR_NONE,
 	.keep = COMPUTE_DEEP_KEEP,
 	.pmic_mode = 1U,
+	.uses_arch_pm_hooks = true,
+	.returns = true,
+};
+#endif /* CONFIG_PM */
+
+#if defined(CONFIG_POWEROFF)
+static const struct power_mode_desc compute_dpd = {
+	.collapse_vdd2_core = true,
+	.full_dsr = false,
+	.override = OVR_DPD,
+	.keep = {0},
+	.pmic_mode = 2U,
+	.uses_arch_pm_hooks = false,
+	.returns = false,
 };
 
+static const struct power_mode_desc compute_fdpd = {
+	.collapse_vdd2_core = true,
+	.full_dsr = false,
+	.override = OVR_FDPD,
+	.keep = {0},
+	.pmic_mode = 3U,
+	.uses_arch_pm_hooks = false,
+	.returns = false,
+};
+#endif /* CONFIG_POWEROFF */
+
+#if defined(CONFIG_PM) || defined(CONFIG_POWEROFF)
 /*
  * FRO0/FRO1 are owned by the Compute domain -- SLEEPCON1 has no control bits for
  * them at all, so no other domain can hold them up and their power-down-ready
@@ -166,6 +197,7 @@ static const struct power_domain compute_domain = {
 #endif
 };
 
+#if defined(CONFIG_PM)
 AT_QUICKACCESS_SECTION_CODE(void power_enter_deep_sleep(void))
 {
 	power_enter_common(&compute_domain, &compute_deep_sleep);
@@ -175,3 +207,12 @@ AT_QUICKACCESS_SECTION_CODE(void power_enter_dsr(void))
 {
 	power_enter_common(&compute_domain, &compute_dsr);
 }
+#endif /* CONFIG_PM */
+
+#if defined(CONFIG_POWEROFF)
+AT_QUICKACCESS_SECTION_CODE(void power_enter_deep_power_down(bool full))
+{
+	power_enter_common(&compute_domain, full ? &compute_fdpd : &compute_dpd);
+}
+#endif /* CONFIG_POWEROFF */
+#endif /* CONFIG_PM || CONFIG_POWEROFF */

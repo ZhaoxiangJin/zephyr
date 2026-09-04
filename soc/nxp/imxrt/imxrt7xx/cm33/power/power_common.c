@@ -6,7 +6,7 @@
  * Shared RT7xx CM33 low-power entry sequence.
  *
  * One power_enter_common() drives every (domain, mode) pair: deep sleep and DSR
- * on the Compute domain and deep sleep on Sense. The
+ * on the Compute domain, deep sleep on Sense, and DPD/FDPD on either. The
  * per-domain and per-mode facts arrive as data (struct power_domain /
  * struct power_mode_desc); this file owns the sequencing and the
  * resource -> register programming, in one place, so the two domains cannot
@@ -24,7 +24,8 @@
 /*
  * PDSLEEPCFG0 voltage-domain vote sets, as a strict layering (RM 31.2):
  *   base            deep sleep: collapse the media/DSP rails, retain the core rails.
- *   core (DSR)      additionally collapse VDD2_COMP + VDD2_COM.
+ *   core (DSR/DPD)  additionally collapse VDD2_COMP + VDD2_COM.
+ * DPD/FDPD are the core vote set plus the [DPD]/[FDPD] override bit.
  */
 #define PDSLPCFG0_BASE_VOTES (\
 	PMC_PDSLEEPCFG0_V2DSP_PD_MASK | PMC_PDSLEEPCFG0_V2MIPI_PD_MASK | \
@@ -32,8 +33,10 @@
 
 #define PDSLPCFG0_CORE_VOTES (PMC_PDSLEEPCFG0_V2COMP_DSR_MASK | PMC_PDSLEEPCFG0_V2COM_DSR_MASK)
 
-/* Mode bits cleared before each entry so a stale value cannot leak. */
-#define PDSLPCFG0_MODE_BITS (PMC_PDSLEEPCFG0_FDSR_MASK | PMC_PDSLEEPCFG0_PMICMODE_MASK)
+/* Mode / override bits cleared before each entry so a stale value cannot leak. */
+#define PDSLPCFG0_MODE_BITS (\
+	PMC_PDSLEEPCFG0_FDSR_MASK | PMC_PDSLEEPCFG0_DPD_MASK | PMC_PDSLEEPCFG0_FDPD_MASK | \
+	PMC_PDSLEEPCFG0_PMICMODE_MASK)
 
 /*
  * PDSLEEPCFG1 deep-sleep set: analog references, brown-out detectors, ROM, OTP,
@@ -80,7 +83,7 @@ static void program_sleepcfg(const struct power_domain *dom, const struct power_
 }
 
 /*
- * Program PDSLEEPCFG0 voltage domains as base [+ core], filtered so
+ * Program PDSLEEPCFG0 voltage domains as base [+ core] [+ override], filtered so
  * a mode never collapses a rail whose companion is kept up (RM 31.2 dependency
  * rules). PMIC/LDO fields are programmed separately by the regulator ops.
  */
@@ -139,7 +142,28 @@ static void program_pdslpcfg0(const struct power_domain *dom, const struct power
 		reg &= ~PMC_PDSLEEPCFG0_V2COM_DSR_MASK;
 	}
 
+	switch (mode->override) {
+	case OVR_DPD:
+		reg |= PMC_PDSLEEPCFG0_DPD_MASK;
+		break;
+	case OVR_FDPD:
+		reg |= PMC_PDSLEEPCFG0_FDPD_MASK;
+		break;
+	case OVR_NONE:
+	default:
+		break;
+	}
+
 	pmc->PDSLEEPCFG0 = reg;
+
+	/*
+	 * DPD (not FDPD) keeps VDD1V8 alive across the cold boot; clear the DSR
+	 * request bits in the run config so they cannot leak into the boot state.
+	 */
+	if (mode->override == OVR_DPD) {
+		pmc->PDRUNCFG0 &=
+			~(PMC_PDRUNCFG0_V2NMED_DSR_MASK | PMC_PDRUNCFG0_VNCOM_DSR_MASK);
+	}
 }
 
 /*
@@ -220,7 +244,7 @@ static void pmc_clear_event_flags(const struct power_domain *dom)
 /*
  * Disable LVD/AGDET-driven resets across the window: the regulator LP switch
  * briefly dips the rail and would otherwise be mistaken for a brown-out. Returns
- * the saved CTRL for restore.
+ * the saved CTRL for restore (poweroff paths do not restore).
  */
 static uint32_t lvd_save_disable(const struct power_domain *dom)
 {
@@ -269,6 +293,19 @@ struct power_resource_set power_keepalive_collect(const struct power_domain *dom
 	return mode->keep;
 }
 
+/*
+ * Mask interrupts for the low-power window the way arch_pm_state_set_prepare()
+ * does, minus the CONFIG_PM-only context save. BASEPRI inhibits WFI from
+ * observing the wake event, so PRIMASK takes over as the IRQ lock.
+ */
+static ALWAYS_INLINE void pm_mask_irqs_for_wfi(void)
+{
+	__disable_irq();
+	__set_BASEPRI(0);
+	__DSB();
+	__ISB();
+}
+
 AT_QUICKACCESS_SECTION_CODE(void power_enter_common(const struct power_domain *dom,
 						    const struct power_mode_desc *mode))
 {
@@ -291,10 +328,30 @@ AT_QUICKACCESS_SECTION_CODE(void power_enter_common(const struct power_domain *d
 	pmc_clear_event_flags(dom);
 	uint32_t saved_ctrl = lvd_save_disable(dom);
 
-	/* Deep sleep / DSR return, so save arch state (and, on XIP, hand the XSPI
-	 * over) around WFI.
+	/*
+	 * Deep sleep / DSR return, so save arch state (and, on XIP, hand the XSPI
+	 * over) around WFI. DPD/FDPD are one-way: there is no state to save, so
+	 * they only mask interrupts.
+	 *
+	 * arch_pm_state_set_prepare()/_finish() exist only under CONFIG_PM -- both
+	 * the weak fallback in arch/common/pm.c and the Cortex-M override in
+	 * cortex_m/cpu_idle.c are CONFIG_PM-gated -- while this file also builds
+	 * for POWEROFF-only configs. Testing mode->uses_arch_pm_hooks at run time
+	 * is not enough, the reference still has to resolve at link time, so the
+	 * calls need a compile-time guard. A POWEROFF-only build only ever gets
+	 * here through DPD/FDPD, which do not use the hooks anyway.
 	 */
-	unsigned int key = arch_pm_state_set_prepare();
+	unsigned int key = 0;
+
+#if defined(CONFIG_PM)
+	if (mode->uses_arch_pm_hooks) {
+		key = arch_pm_state_set_prepare();
+	} else {
+		pm_mask_irqs_for_wfi();
+	}
+#else
+	pm_mask_irqs_for_wfi();
+#endif
 
 	if (dom->xip_suspend != NULL) {
 		/*
@@ -319,11 +376,22 @@ AT_QUICKACCESS_SECTION_CODE(void power_enter_common(const struct power_domain *d
 
 	__WFI();
 
+	if (!mode->returns) {
+		/* DPD/FDPD power the domain off; WFI never returns (cold boot). */
+		CODE_UNREACHABLE;
+		return;
+	}
+
 	if (dom->xip_resume != NULL) {
 		dom->xip_resume();
 	}
 
+#if defined(CONFIG_PM)
+	/* Only modes with returns == true get here, and those all use the hooks. */
 	arch_pm_state_set_finish(key);
+#else
+	ARG_UNUSED(key);
+#endif
 	lvd_restore(dom, saved_ctrl);
 
 	SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;

@@ -7,11 +7,11 @@
  *
  * The two CM33 cores each live in one power domain -- CPU0 in Compute
  * (PMC0/SLEEPCON0), CPU1 in Sense (PMC1/SLEEPCON1) -- and enter the same family
- * of low-power modes (deep sleep and, on Compute, DSR). The per-domain differences
+ * of low-power modes (deep sleep, DSR, DPD, FDPD). The per-domain differences
  * (which PMC instance, which SLEEPCFG bit set, whether DSR/XIP exist, how the
  * regulator is driven, how shared-clock power-down-ready is handled) are data,
  * carried in struct power_domain. The per-mode differences (which voltage
- * domains collapse, what to keep alive) are data too, in
+ * domains collapse, which override bit, what to keep alive) are data too, in
  * struct power_mode_desc. A single power_enter_common() consumes a (domain,
  * mode) pair, so there is exactly one copy of the entry sequence.
  */
@@ -45,6 +45,13 @@ typedef SLEEPCON1_Type soc_sleepcon_t;
 
 struct power_domain;
 struct power_mode_desc;
+
+/* One-way override applied on top of the DSR voltage-domain votes. */
+enum power_override {
+	OVR_NONE = 0,
+	OVR_DPD,
+	OVR_FDPD,
+};
 
 /*
  * PMIC / regulator decision hook.
@@ -124,14 +131,15 @@ struct power_domain {
 struct power_mode_desc {
 	/* PDSLEEPCFG0 voltage-domain layering:
 	 *   base (deep sleep): vote V2DSP/V2MIPI/V2NMED/VNCOM down, keep V2COMP/V2COM.
-	 *   collapse_vdd2_core: additionally collapse V2COMP + V2COM (DSR, and the
-	 *                       Sense-domain deep-sleep view).
+	 *   collapse_vdd2_core: additionally collapse V2COMP + V2COM (DSR/DPD/FDPD,
+	 *                       and the Sense-domain deep-sleep view).
 	 */
 	bool collapse_vdd2_core;
-	/* Full DSR (FDSR) bit. Set only by the Compute DSR mode; deep sleep leaves
-	 * it clear even when it collapses the core rails.
+	/* Full DSR (FDSR) bit. Set only by the Compute DSR mode; deep sleep and
+	 * the poweroff modes leave it clear even when they collapse the core rails.
 	 */
 	bool full_dsr;
+	enum power_override override;
 
 	/* Compile-time base keep-alive. When resource ownership moves to device
 	 * runtime PM, power_keepalive_collect() will OR each device's requirement
@@ -140,6 +148,8 @@ struct power_mode_desc {
 	struct power_resource_set keep;
 
 	uint8_t pmic_mode;         /* Per-mode PMICMODE default (regulator may override). */
+	bool    uses_arch_pm_hooks; /* deep/dsr use arch_pm_state_set_*; dpd/fdpd do not. */
+	bool    returns;            /* deep/dsr return; dpd/fdpd are one-way (cold boot). */
 };
 
 /*

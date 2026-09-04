@@ -31,6 +31,24 @@ void power_enter_deep_sleep(void);
 void power_enter_dsr(void);
 #endif
 
+#if defined(CONFIG_POWEROFF)
+/**
+ * @brief Enter Deep Power Down (DPD) or Full Deep Power Down (FDPD).
+ *
+ * Backs sys_poweroff(): both modes power the calling core's domain (and its
+ * SRAM) off and cold boot on wake, so this never returns. Implemented for
+ * both the compute (PMC0/SLEEPCON0) and sense (PMC1/SLEEPCON1) domains;
+ * the chip only actually powers off once the aggregation resolves,
+ * i.e. the other domain is also reset / powered off / selecting DPD-FDPD.
+ *
+ * Nothing is retained across DPD/FDPD, so no keep-alive mask applies: the
+ * [DPD]/[FDPD] override bit powers every domain down regardless.
+ *
+ * @param full  true for FDPD (also turns off VDD1V8_PMC), false for DPD.
+ */
+void power_enter_deep_power_down(bool full);
+#endif /* CONFIG_POWEROFF */
+
 #ifdef __cplusplus
 }
 #endif
