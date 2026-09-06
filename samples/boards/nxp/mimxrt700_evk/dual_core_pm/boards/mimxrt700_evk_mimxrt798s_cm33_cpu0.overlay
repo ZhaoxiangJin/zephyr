@@ -1,0 +1,63 @@
+/*
+ * SPDX-FileCopyrightText: Copyright 2026 NXP
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * The dual-core PM sample does not use I2C or the on-board PCA9422 PMIC.
+ *
+ * On CPU0 the LPI2C15 functional clock is sourced from the SENSE domain base
+ * clock, which is configured by CPU1 (not CPU0). When the PMIC MFD driver is
+ * pulled in it initializes LPI2C15 while its clock rate is still 0, which makes
+ * the MCUX LPI2C driver divide by zero during baud-rate setup. Disabling the
+ * unused bus (and the PMIC node on it) keeps the sample focused on dual-core
+ * power-management coordination over the MU.
+ */
+
+&lpi2c15 {
+	status = "disabled";
+};
+
+&pca9422 {
+	status = "disabled";
+};
+
+/*
+ * No PMC register configuration is needed here. The SoC low-power entry path
+ * derives what has to stay powered across a deep-sleep / deep-sleep-retention
+ * window from CONFIG_SECOND_CORE_MCUX: with the Sense core in the build it keeps
+ * the SENSE/COMN main clocks, the shared oscillators, VDDN_COM and all
+ * main-memory partitions alive so CPU1 keeps running (cases 5-7) or resumes in
+ * place (case 8). See soc/nxp/imxrt/imxrt7xx/cm33/power/power_keepalive.h.
+ *
+ * The application side of the coordination is the MU handshake in src/main.c
+ * plus pm_policy_state_lock_get()/put(), which is what keeps CPU0 out of a state
+ * CPU1 is not ready for.
+ */
+
+/*
+ * In DSR (case 8) the OS Timer that drives the system tick loses power because
+ * it sits in the VDD2_COMP rail that DSR collapses. Enable the always-on IRTC
+ * wake timer as the companion counter so the OS Timer can program a wakeup and
+ * resume in place. rtc0 must be okay for its wake-timer child to be usable.
+ */
+/ {
+	chosen {
+		zephyr,system-timer-companion = &irtc_wake;
+	};
+};
+
+&rtc0 {
+	status = "okay";
+};
+
+/*
+ * Enable the IRTC wake timer as the deep-sleep companion. Its wakeup-source
+ * capability and SLEEPCON0 WUC routing are described at the SoC level (see
+ * nxp_rt7xx_cm33_cpu0.dtsi); the counter driver arms it through the WUC on
+ * init once the node is enabled here.
+ */
+&irtc_wake {
+	status = "okay";
+};
