@@ -141,13 +141,6 @@ static int runtime_suspend(const struct device *dev, bool async,
 	int ret = 0;
 	struct pm_device *pm = dev->pm;
 
-	/*
-	 * Early return if device runtime is not enabled.
-	 */
-	if (!atomic_test_bit(&pm->base.flags, PM_DEVICE_FLAG_RUNTIME_ENABLED)) {
-		return 0;
-	}
-
 	/* If we are not the last user, return. */
 	if (runtime_usage_put_fast(pm)) {
 		return 0;
@@ -420,6 +413,14 @@ static int put_sync_locked(const struct device *dev)
 	struct pm_device_isr *pm = dev->pm_isr;
 	uint32_t flags = pm->base.flags;
 
+	/*
+	 * The public entry points already filtered out devices without runtime
+	 * PM, but the recursive call releasing the power domain below does not:
+	 * a domain that has runtime PM disabled can still be flagged as claimed
+	 * by its children, because pm_device_runtime_get() silently succeeds on
+	 * it. Keep the check here so that such a domain is skipped instead of
+	 * reporting -EALREADY on a balanced put.
+	 */
 	if (!(flags & BIT(PM_DEVICE_FLAG_RUNTIME_ENABLED))) {
 		return 0;
 	}
@@ -464,7 +465,10 @@ int pm_device_runtime_put(const struct device *dev)
 
 	SYS_PORT_TRACING_FUNC_ENTER(pm, device_runtime_put, dev);
 
-	if (atomic_test_bit(&dev->pm_base->flags, PM_DEVICE_FLAG_ISR_SAFE)) {
+	if (!atomic_test_bit(&dev->pm_base->flags, PM_DEVICE_FLAG_RUNTIME_ENABLED)) {
+		/* Nothing was ever counted, so there is nothing to release. */
+		ret = 0;
+	} else if (atomic_test_bit(&dev->pm_base->flags, PM_DEVICE_FLAG_ISR_SAFE)) {
 		struct pm_device_isr *pm_sync = dev->pm_isr;
 		k_spinlock_key_t k = k_spin_lock(&pm_sync->lock);
 
@@ -489,7 +493,10 @@ int pm_device_runtime_put_async(const struct device *dev, k_timeout_t delay)
 	}
 
 	SYS_PORT_TRACING_FUNC_ENTER(pm, device_runtime_put_async, dev, delay);
-	if (atomic_test_bit(&dev->pm_base->flags, PM_DEVICE_FLAG_ISR_SAFE)) {
+	if (!atomic_test_bit(&dev->pm_base->flags, PM_DEVICE_FLAG_RUNTIME_ENABLED)) {
+		/* Nothing was ever counted, so there is nothing to release. */
+		ret = 0;
+	} else if (atomic_test_bit(&dev->pm_base->flags, PM_DEVICE_FLAG_ISR_SAFE)) {
 		struct pm_device_isr *pm_sync = dev->pm_isr;
 		k_spinlock_key_t k = k_spin_lock(&pm_sync->lock);
 
