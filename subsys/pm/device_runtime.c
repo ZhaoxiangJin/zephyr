@@ -413,18 +413,6 @@ static int put_sync_locked(const struct device *dev)
 	struct pm_device_isr *pm = dev->pm_isr;
 	uint32_t flags = pm->base.flags;
 
-	/*
-	 * The public entry points already filtered out devices without runtime
-	 * PM, but the recursive call releasing the power domain below does not:
-	 * a domain that has runtime PM disabled can still be flagged as claimed
-	 * by its children, because pm_device_runtime_get() silently succeeds on
-	 * it. Keep the check here so that such a domain is skipped instead of
-	 * reporting -EALREADY on a balanced put.
-	 */
-	if (!(flags & BIT(PM_DEVICE_FLAG_RUNTIME_ENABLED))) {
-		return 0;
-	}
-
 	if (pm->base.usage == 0U) {
 		return -EALREADY;
 	}
@@ -441,8 +429,14 @@ static int put_sync_locked(const struct device *dev)
 		if (flags & BIT(PM_DEVICE_FLAG_PD_CLAIMED)) {
 			const struct device *domain = PM_DOMAIN(&pm->base);
 
+			/*
+			 * Only an ISR-safe domain can be released from here:
+			 * the caller holds a spinlock, so the non ISR-safe back
+			 * end of pm_device_runtime_put() must not be entered,
+			 * it would try to take a semaphore.
+			 */
 			if (domain->pm_base->flags & BIT(PM_DEVICE_FLAG_ISR_SAFE)) {
-				ret = put_sync_locked(domain);
+				ret = pm_device_runtime_put(domain);
 				pm->base.flags &= ~BIT(PM_DEVICE_FLAG_PD_CLAIMED);
 			} else {
 				ret = -EWOULDBLOCK;
