@@ -75,6 +75,20 @@
 		};
 	};
 
+	/*
+	 * Deep Power Down gates the CORE domain, so every peripheral register
+	 * block in it comes back from reset. This domain hands the affected
+	 * drivers a TURN_OFF before the transition and a TURN_ON after it, which
+	 * is what lets them reconfigure their hardware on resume. It follows
+	 * &deeppowerdown, so it stays inert until the application enables that
+	 * state.
+	 */
+	peripheral_domain: peripheral-domain {
+		compatible = "power-domain-soc-state-change";
+		#power-domain-cells = <0>;
+		onoff-power-states = <&deeppowerdown>;
+	};
+
 	/* Dummy pinctrl node, filled with pin mux options at board level */
 	pinctrl: pinctrl {
 		compatible = "nxp,port-pinctrl";
@@ -500,6 +514,7 @@
 			 * &deepsleep from this list in its own overlay.
 			 */
 			zephyr,disabling-power-states = <&deepsleep &powerdown &deeppowerdown>;
+			power-domains = <&peripheral_domain>;
 		};
 
 		lpadc1: lpadc@400b0000 {
@@ -517,6 +532,7 @@
 			#io-channel-cells = <1>;
 			clocks = <&syscon MCUX_LPADC2_CLK>;
 			zephyr,disabling-power-states = <&deepsleep &powerdown &deeppowerdown>;
+			power-domains = <&peripheral_domain>;
 		};
 
 		lpcmp0: lpcmp@400b1000 {
