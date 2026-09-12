@@ -1009,7 +1009,94 @@ static void mcux_lpadc_isr(const struct device *dev)
 	}
 }
 
-#if CONFIG_PM_DEVICE
+/*
+ * Bring the converter up from reset: clock, configuration, calibration and the
+ * watermark interrupt. Everything here has to tolerate being run a second time
+ * after the register block lost power, which is what lets TURN_ON restore a
+ * device that came back from Deep Power Down. The converter is left disabled,
+ * so what this leaves behind is the suspended state.
+ */
+static int mcux_lpadc_configure_hw(const struct device *dev)
+{
+	const struct mcux_lpadc_config *config = dev->config;
+	struct mcux_lpadc_data *data = dev->data;
+	ADC_Type *base = config->base;
+	lpadc_config_t adc_config;
+	int err;
+
+	err = clock_control_configure(config->clock_dev, config->clock_subsys, NULL);
+	if (err && err != -ENOSYS) {
+		/* Real error occurred */
+		LOG_ERR("Failed to configure clock: %d", err);
+		return err;
+	}
+
+	LPADC_GetDefaultConfig(&adc_config);
+
+	adc_config.enableAnalogPreliminary = true;
+	adc_config.referenceVoltageSource = config->voltage_ref;
+	adc_config.enableInDozeMode = !config->stop_in_low_power;
+
+#if defined(FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS) && FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS
+	adc_config.conversionAverageMode = config->calibration_average;
+#endif /* FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS */
+
+#if !(DT_ANY_INST_HAS_PROP_STATUS_OKAY(no_power_level))
+	adc_config.powerLevelMode = config->power_level;
+#endif
+
+	LPADC_Init(base, &adc_config);
+
+	/* Do ADC calibration. */
+#if defined(FSL_FEATURE_LPADC_HAS_CTRL_CALOFS) && FSL_FEATURE_LPADC_HAS_CTRL_CALOFS
+#if defined(FSL_FEATURE_LPADC_HAS_OFSTRIM) && FSL_FEATURE_LPADC_HAS_OFSTRIM
+	/* Request offset calibration. */
+#if defined(CONFIG_LPADC_DO_OFFSET_CALIBRATION) && CONFIG_LPADC_DO_OFFSET_CALIBRATION
+	LPADC_DoOffsetCalibration(base);
+#else
+#if defined(FSL_FEATURE_LPADC_OFSTRIM_COUNT) && (FSL_FEATURE_LPADC_OFSTRIM_COUNT == 1U)
+	LPADC_SetOffsetValue(base, config->offset_a);
+#else
+	LPADC_SetOffsetValue(base, config->offset_a, config->offset_b);
+#endif /* FSL_FEATURE_LPADC_OFSTRIM_COUNT */
+#endif /* DEMO_LPADC_DO_OFFSET_CALIBRATION */
+#endif /* FSL_FEATURE_LPADC_HAS_OFSTRIM */
+	/* Request gain calibration.
+	 * A 1us delay is required between offset calibration and gain
+	 * calibration. Without it, the gain calibration request is not
+	 * accepted by the hardware, causing LPADC_FinishAutoCalibration()
+	 * to spin forever on GCC[RDY]. See GitHub issue #105652.
+	 */
+	k_busy_wait(1U);
+	LPADC_PrepareAutoCalibration(base);
+	LPADC_FinishAutoCalibration(base);
+#endif /* FSL_FEATURE_LPADC_HAS_CTRL_CALOFS */
+
+#if (defined(FSL_FEATURE_LPADC_HAS_CFG_CALOFS) && FSL_FEATURE_LPADC_HAS_CFG_CALOFS)
+	/* Do auto calibration. */
+	LPADC_DoAutoCalibration(base);
+#endif /* FSL_FEATURE_LPADC_HAS_CFG_CALOFS */
+
+	/* Enable the watermark interrupt if not using DMA or if DMA setup failed */
+	if (!IS_ENABLED(CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN) || !data->use_dma) {
+#if (defined(FSL_FEATURE_LPADC_FIFO_COUNT) && (FSL_FEATURE_LPADC_FIFO_COUNT == 2U))
+		LPADC_EnableInterrupts(base, kLPADC_FIFO0WatermarkInterruptEnable);
+#else
+		LPADC_EnableInterrupts(base, kLPADC_FIFOWatermarkInterruptEnable);
+#endif
+		config->irq_config_func(dev);
+	}
+
+	/*
+	 * LPADC_Init() leaves the converter running. Hand it over disabled: the
+	 * caller is either pm_device_driver_init(), which decides whether the
+	 * device starts active, or TURN_ON, which is followed by RESUME.
+	 */
+	LPADC_Enable(base, false);
+
+	return 0;
+}
+
 static int mcux_lpadc_pm_callback(const struct device *dev, enum pm_device_action action)
 {
 	const struct mcux_lpadc_config *config = dev->config;
@@ -1019,6 +1106,50 @@ static int mcux_lpadc_pm_callback(const struct device *dev, enum pm_device_actio
 	int err;
 
 	switch (action) {
+	case PM_DEVICE_ACTION_TURN_ON:
+		/*
+		 * Reached at init, and again whenever the register block has
+		 * been through Deep Power Down: the suspend-to-RAM resume path
+		 * does not re-run driver init, so the configuration and the
+		 * calibration have to be redone from here. Calibration needs the
+		 * reference voltage, but the device is handed over suspended, so
+		 * the reference is dropped again before returning.
+		 */
+		if (regulator != NULL) {
+			err = regulator_enable(regulator);
+			if (err < 0) {
+				return err;
+			}
+
+			/* Request the buffered 2.1V output (BUF21) on the NXP VREF
+			 * regulator. enable() only brings up the bandgap; without
+			 * this step BUF21 is left disabled and the LPADC's VREFI
+			 * reference is unbuffered, which causes inaccurate conversions.
+			 */
+			(void)regulator_set_mode(regulator, NXP_VREF_MODE_HIGH_POWER);
+		}
+
+		err = mcux_lpadc_configure_hw(dev);
+
+		if (regulator != NULL) {
+			int ref_err = regulator_disable(regulator);
+
+			if (err == 0) {
+				err = ref_err;
+			}
+		}
+
+		return err;
+
+	case PM_DEVICE_ACTION_TURN_OFF:
+		/*
+		 * The power domain suspends the device before it turns it off,
+		 * so the converter is already disabled and the supplies are
+		 * already released. Writing to a register block that is about to
+		 * lose power buys nothing.
+		 */
+		return 0;
+
 	case PM_DEVICE_ACTION_RESUME:
 
 		if (regulator != NULL) {
@@ -1076,96 +1207,18 @@ static int mcux_lpadc_pm_callback(const struct device *dev, enum pm_device_actio
 		return -ENOTSUP;
 	}
 }
-#endif
 
 static int mcux_lpadc_init(const struct device *dev)
 {
 	const struct mcux_lpadc_config *config = dev->config;
 	struct mcux_lpadc_data *data = dev->data;
-	ADC_Type *base = config->base;
-	lpadc_config_t adc_config;
-	int err;
-
-	err = pinctrl_apply_state(config->pincfg, PINCTRL_STATE_DEFAULT);
-	if (err) {
-		return err;
-	}
-
-	/* Enable necessary regulators */
-	const struct device *regulator = config->ref_supplies;
-
-	if (regulator != NULL) {
-		err = regulator_enable(regulator);
-		if (err) {
-			return err;
-		}
-
-		/* Request the buffered 2.1V output (BUF21) on the NXP VREF
-		 * regulator. enable() only brings up the bandgap; without
-		 * this step BUF21 is left disabled and the LPADC's VREFI
-		 * reference is unbuffered, which causes inaccurate conversions.
-		 */
-		(void)regulator_set_mode(regulator, NXP_VREF_MODE_HIGH_POWER);
-	}
 
 	if (!device_is_ready(config->clock_dev)) {
 		LOG_ERR("clock device not ready");
 		return -ENODEV;
 	}
 
-	err = clock_control_configure(config->clock_dev, config->clock_subsys, NULL);
-	if (err && err != -ENOSYS) {
-		/* Real error occurred */
-		LOG_ERR("Failed to configure clock: %d", err);
-		return err;
-	}
-
-	LPADC_GetDefaultConfig(&adc_config);
-
-	adc_config.enableAnalogPreliminary = true;
-	adc_config.referenceVoltageSource = config->voltage_ref;
-	adc_config.enableInDozeMode = !config->stop_in_low_power;
-
-#if defined(FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS) && FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS
-	adc_config.conversionAverageMode = config->calibration_average;
-#endif /* FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS */
-
-#if !(DT_ANY_INST_HAS_PROP_STATUS_OKAY(no_power_level))
-	adc_config.powerLevelMode = config->power_level;
-#endif
-
-	LPADC_Init(base, &adc_config);
-
-	/* Do ADC calibration. */
-#if defined(FSL_FEATURE_LPADC_HAS_CTRL_CALOFS) && FSL_FEATURE_LPADC_HAS_CTRL_CALOFS
-#if defined(FSL_FEATURE_LPADC_HAS_OFSTRIM) && FSL_FEATURE_LPADC_HAS_OFSTRIM
-	/* Request offset calibration. */
-#if defined(CONFIG_LPADC_DO_OFFSET_CALIBRATION) && CONFIG_LPADC_DO_OFFSET_CALIBRATION
-	LPADC_DoOffsetCalibration(base);
-#else
-#if defined(FSL_FEATURE_LPADC_OFSTRIM_COUNT) && (FSL_FEATURE_LPADC_OFSTRIM_COUNT == 1U)
-	LPADC_SetOffsetValue(base, config->offset_a);
-#else
-	LPADC_SetOffsetValue(base, config->offset_a, config->offset_b);
-#endif /* FSL_FEATURE_LPADC_OFSTRIM_COUNT */
-#endif /* DEMO_LPADC_DO_OFFSET_CALIBRATION */
-#endif /* FSL_FEATURE_LPADC_HAS_OFSTRIM */
-	/* Request gain calibration.
-	 * A 1us delay is required between offset calibration and gain
-	 * calibration. Without it, the gain calibration request is not
-	 * accepted by the hardware, causing LPADC_FinishAutoCalibration()
-	 * to spin forever on GCC[RDY]. See GitHub issue #105652.
-	 */
-	k_busy_wait(1U);
-	LPADC_PrepareAutoCalibration(base);
-	LPADC_FinishAutoCalibration(base);
-#endif /* FSL_FEATURE_LPADC_HAS_CTRL_CALOFS */
-
-#if (defined(FSL_FEATURE_LPADC_HAS_CFG_CALOFS) && FSL_FEATURE_LPADC_HAS_CFG_CALOFS)
-	/* Do auto calibration. */
-	LPADC_DoAutoCalibration(base);
-#endif /* FSL_FEATURE_LPADC_HAS_CFG_CALOFS */
-
+	data->dev = dev;
 	data->use_dma = false;
 
 #if defined(CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN)
@@ -1177,42 +1230,19 @@ static int mcux_lpadc_init(const struct device *dev)
 	}
 #endif
 
-	/* Enable the watermark interrupt if not using DMA or if DMA setup failed */
-	if (!IS_ENABLED(CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN) || !data->use_dma) {
-#if (defined(FSL_FEATURE_LPADC_FIFO_COUNT) && (FSL_FEATURE_LPADC_FIFO_COUNT == 2U))
-		LPADC_EnableInterrupts(base, kLPADC_FIFO0WatermarkInterruptEnable);
-#else
-		LPADC_EnableInterrupts(base, kLPADC_FIFOWatermarkInterruptEnable);
-#endif
-		config->irq_config_func(dev);
-	}
-
-	data->dev = dev;
-
 	/* Initialize OPAMP gain control context */
 	data->current_gain_index = 0U;
 	data->desired_gain_index = -1;
 
 	adc_context_unlock_unconditionally(&data->ctx);
 
-
-
-#if CONFIG_PM_DEVICE
-	/* Disable LPADC here, in pm_device_driver_init,
-	 * - if device runtime PM is enabled, the LPADC state will be set to SUSPEND,
-	 *   we should keep same state in hardware.
-	 * - if device runtime PM is not enabled, pm_device_driver_init will resume LPADC.
-	 * - if the LPADC is in a power domain, and the power domain is off, the LPADC
-	 *   state will set to OFF, disabled LPADC matches the state.
+	/*
+	 * The hardware bring-up is in TURN_ON and the supplies and the pins are
+	 * in RESUME, so a device that is left suspended here -- runtime PM, or a
+	 * power domain that is still off -- does not leave its reference voltage
+	 * regulator enabled behind it.
 	 */
-	LPADC_Enable(config->base, false);
-
 	return pm_device_driver_init(dev, mcux_lpadc_pm_callback);
-#else
-	return 0;
-#endif
-
-	return 0;
 }
 
 static DEVICE_API(adc, mcux_lpadc_driver_api) = {
