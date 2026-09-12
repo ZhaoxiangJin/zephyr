@@ -20,9 +20,7 @@
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/opamp.h>
 #include <zephyr/pm/policy.h>
-#if CONFIG_PM_DEVICE
 #include <zephyr/pm/device.h>
-#endif
 #ifdef CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN
 #include <zephyr/drivers/dma.h>
 #endif
@@ -322,9 +320,21 @@ static int mcux_lpadc_channel_setup(const struct device *dev,
 		const bool was_bandgap_channel = (data->bandgap_channels & channel_mask) != 0U;
 		const bool is_bandgap_channel =
 			channel_cfg->input_positive == config->bandgap_input;
+		enum pm_device_state state;
+		bool active;
+
+		/*
+		 * The bandgap is only held while the converter is running: RESUME
+		 * enables it and SUSPEND drops it again, both keyed off the same mask.
+		 * Enabling it from here while the device is suspended would raise the
+		 * regulator's reference count with nothing left to lower it, so only
+		 * the bookkeeping is unconditional.
+		 */
+		(void)pm_device_state_get(dev, &state);
+		active = (state == PM_DEVICE_STATE_ACTIVE);
 
 		if (is_bandgap_channel && !was_bandgap_channel) {
-			if (data->bandgap_channels == 0U) {
+			if (active && data->bandgap_channels == 0U) {
 				err = regulator_enable(config->bandgap_supply);
 				if (err < 0) {
 					return err;
@@ -333,7 +343,7 @@ static int mcux_lpadc_channel_setup(const struct device *dev,
 
 			data->bandgap_channels |= channel_mask;
 		} else if (!is_bandgap_channel && was_bandgap_channel) {
-			if (data->bandgap_channels == channel_mask) {
+			if (active && data->bandgap_channels == channel_mask) {
 				err = regulator_disable(config->bandgap_supply);
 				if (err < 0) {
 					return err;
