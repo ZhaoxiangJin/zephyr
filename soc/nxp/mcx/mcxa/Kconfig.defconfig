@@ -36,6 +36,15 @@ configdefault SYSTEM_TIMER_RESET_BY_LPM
 
 endif # PM
 
+if PM_DEVICE
+
+# The peripheral domain hands the drivers in the CORE domain the TURN_OFF and
+# TURN_ON they need to survive Deep Power Down.
+configdefault POWER_DOMAIN
+	default y
+
+endif # PM_DEVICE
+
 if HAS_MCUX_SYSCON_LPCAC
 
 configdefault CACHE_MANAGEMENT
