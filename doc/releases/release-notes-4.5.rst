@@ -602,6 +602,15 @@ New APIs and options
   * :c:func:`cipher_cfb_op`
   * :c:func:`cipher_ofb_op`
 
+* DAC
+
+  * Optional :c:member:`dac_driver_api.channel_stop` callback and
+    :c:func:`dac_channel_stop` / :c:func:`dac_channel_stop_dt` to stop a
+    channel driving its output, which writing zero with
+    :c:func:`dac_write_value` does not do. The channel stays configured, so a
+    later :c:func:`dac_write_value` resumes driving it. Drivers that leave the
+    callback NULL return ``-ENOSYS``.
+
 * Devicetree
 
   * :c:macro:`DT_IRQN_BY_NAME`

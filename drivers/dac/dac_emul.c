@@ -17,6 +17,7 @@ LOG_MODULE_REGISTER(dac_emul, CONFIG_DAC_LOG_LEVEL);
 struct dac_emul_channel {
 	uint32_t value;
 	uint8_t resolution;
+	bool driving;
 };
 
 struct dac_emul_config {
@@ -89,6 +90,7 @@ static inline int write_value_locked(struct dac_emul_channel *chan, uint8_t chan
 	}
 
 	chan->value = value;
+	chan->driving = true;
 	LOG_DBG("Channel %u value set to %u", channel_id, value);
 
 	return 0;
@@ -117,6 +119,42 @@ static int dac_emul_write_value(const struct device *dev, uint8_t channel, uint3
 
 	k_mutex_unlock(&data->channel_mutex);
 	return rc;
+}
+
+static int dac_emul_channel_stop(const struct device *dev, uint8_t channel)
+{
+	struct dac_emul_data *data = dev->data;
+	const struct dac_emul_config *config = dev->config;
+
+	if (channel >= config->channel_count) {
+		LOG_ERR("Invalid channel %u (max %u)", channel, config->channel_count - 1);
+		return -EINVAL;
+	}
+
+	struct dac_emul_channel *chan = &data->channels[channel];
+
+	int rc = k_mutex_lock(&data->channel_mutex, DAC_EMUL_TIMEOUT);
+
+	if (rc != 0) {
+		LOG_ERR("Could not acquire channel lock (%d)", rc);
+		return (rc == -EAGAIN) ? -EBUSY : rc;
+	}
+
+	if (chan->resolution == 0) {
+		LOG_ERR("Channel %u not configured", channel);
+		k_mutex_unlock(&data->channel_mutex);
+		return -ENXIO;
+	}
+
+	/*
+	 * The resolution and the last value written are kept, so a later
+	 * write_value() can start driving again without another setup.
+	 */
+	chan->driving = false;
+	LOG_DBG("Channel %u stopped driving", channel);
+
+	k_mutex_unlock(&data->channel_mutex);
+	return 0;
 }
 
 static inline int value_get_locked(const struct dac_emul_channel *chan, uint8_t channel_id,
@@ -164,6 +202,34 @@ int dac_emul_value_get(const struct device *dev, uint8_t channel, uint32_t *valu
 	return rc;
 }
 
+int dac_emul_is_driving(const struct device *dev, uint8_t channel, bool *driving)
+{
+	struct dac_emul_data *data = dev->data;
+	const struct dac_emul_config *config = dev->config;
+
+	if (channel >= config->channel_count) {
+		LOG_ERR("Invalid channel %u (max %u)", channel, config->channel_count - 1);
+		return -EINVAL;
+	}
+
+	if (driving == NULL) {
+		LOG_ERR("Null pointer provided");
+		return -EINVAL;
+	}
+
+	int rc = k_mutex_lock(&data->channel_mutex, DAC_EMUL_TIMEOUT);
+
+	if (rc != 0) {
+		LOG_ERR("Could not acquire channel lock (%d)", rc);
+		return (rc == -EAGAIN) ? -EBUSY : rc;
+	}
+
+	*driving = data->channels[channel].driving;
+	k_mutex_unlock(&data->channel_mutex);
+
+	return 0;
+}
+
 static int dac_emul_init(const struct device *dev)
 {
 	struct dac_emul_data *data = dev->data;
@@ -178,6 +244,7 @@ static int dac_emul_init(const struct device *dev)
 static DEVICE_API(dac, dac_emul_driver_api) = {
 	.channel_setup = dac_emul_channel_setup,
 	.write_value = dac_emul_write_value,
+	.channel_stop = dac_emul_channel_stop,
 };
 
 #define DAC_EMUL_INIT(inst)                                                                        \

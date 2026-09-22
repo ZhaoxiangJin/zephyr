@@ -500,6 +500,111 @@ ZTEST(dac_emul_tests, test_1bit_resolution)
 	zassert_equal(ret, -EINVAL, "Write 2 should fail for 1-bit");
 }
 
+/*** Channel Stop Tests ***/
+
+ZTEST(dac_emul_tests, test_write_zero_keeps_driving)
+{
+	/*
+	 * Writing zero selects the bottom of the output range, it does not stop
+	 * the output. This is the distinction dac_channel_stop() exists for.
+	 */
+	struct dac_channel_cfg cfg = {
+		.channel_id = 2,
+		.resolution = 12,
+	};
+	bool driving;
+
+	int ret = dac_channel_setup(dac_emul0, &cfg);
+
+	zassert_equal(ret, 0, "Channel setup should succeed");
+
+	ret = dac_write_value(dac_emul0, 2, 0);
+	zassert_equal(ret, 0, "Write 0 should succeed");
+
+	ret = dac_emul_is_driving(dac_emul0, 2, &driving);
+	zassert_equal(ret, 0, "Reading the output state should succeed");
+	zassert_true(driving, "Channel should still be driving after writing 0");
+}
+
+ZTEST(dac_emul_tests, test_channel_stop_stops_output)
+{
+	struct dac_channel_cfg cfg = {
+		.channel_id = 3,
+		.resolution = 12,
+	};
+	bool driving;
+	uint32_t value;
+
+	int ret = dac_channel_setup(dac_emul0, &cfg);
+
+	zassert_equal(ret, 0, "Channel setup should succeed");
+
+	ret = dac_write_value(dac_emul0, 3, 1234);
+	zassert_equal(ret, 0, "Write should succeed");
+
+	ret = dac_emul_is_driving(dac_emul0, 3, &driving);
+	zassert_equal(ret, 0, "Reading the output state should succeed");
+	zassert_true(driving, "Channel should be driving after a write");
+
+	ret = dac_channel_stop(dac_emul0, 3);
+	zassert_equal(ret, 0, "Stop should succeed");
+
+	ret = dac_emul_is_driving(dac_emul0, 3, &driving);
+	zassert_equal(ret, 0, "Reading the output state should succeed");
+	zassert_false(driving, "Channel should not be driving after a stop");
+
+	/* The channel configuration and the last value written survive. */
+	ret = dac_emul_value_get(dac_emul0, 3, &value);
+	zassert_equal(ret, 0, "Read should succeed after a stop");
+	zassert_equal(value, 1234, "Stop should not discard the last value");
+}
+
+ZTEST(dac_emul_tests, test_channel_stop_then_write_resumes)
+{
+	struct dac_channel_cfg cfg = {
+		.channel_id = 1,
+		.resolution = 12,
+	};
+	bool driving;
+	uint32_t value;
+
+	int ret = dac_channel_setup(dac_emul0, &cfg);
+
+	zassert_equal(ret, 0, "Channel setup should succeed");
+
+	ret = dac_write_value(dac_emul0, 1, 100);
+	zassert_equal(ret, 0, "Write should succeed");
+
+	ret = dac_channel_stop(dac_emul0, 1);
+	zassert_equal(ret, 0, "Stop should succeed");
+
+	/* No second dac_channel_setup() here: the channel stays configured. */
+	ret = dac_write_value(dac_emul0, 1, 200);
+	zassert_equal(ret, 0, "Write after a stop should succeed");
+
+	ret = dac_emul_is_driving(dac_emul0, 1, &driving);
+	zassert_equal(ret, 0, "Reading the output state should succeed");
+	zassert_true(driving, "Channel should drive again after a write");
+
+	ret = dac_emul_value_get(dac_emul0, 1, &value);
+	zassert_equal(ret, 0, "Read should succeed");
+	zassert_equal(value, 200, "Value should be the one written last");
+}
+
+ZTEST(dac_emul_tests, test_channel_stop_invalid_channel)
+{
+	int ret = dac_channel_stop(dac_emul0, 10);
+
+	zassert_equal(ret, -EINVAL, "Stop on an invalid channel should fail");
+}
+
+ZTEST(dac_emul_tests, test_channel_stop_unconfigured_channel)
+{
+	int ret = dac_channel_stop(dac_emul_unconfigured, 0);
+
+	zassert_equal(ret, -ENXIO, "Stop on an unconfigured channel should fail");
+}
+
 /*** Test Suite Definition ***/
 
 ZTEST_SUITE(dac_emul_tests, NULL, dac_emul_setup, NULL, NULL, NULL);

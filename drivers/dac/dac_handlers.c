@@ -32,3 +32,16 @@ static inline int z_vrfy_dac_write_value(const struct device *dev,
 				      value);
 }
 #include <zephyr/syscalls/dac_write_value_mrsh.c>
+
+static inline int z_vrfy_dac_channel_stop(const struct device *dev, uint8_t channel)
+{
+	/*
+	 * channel_stop is optional, so only the device type is checked here.
+	 * A driver that does not implement it makes z_impl_dac_channel_stop()
+	 * return -ENOSYS rather than faulting the calling thread.
+	 */
+	K_OOPS(K_SYSCALL_OBJ(dev, K_OBJ_DRIVER_DAC));
+
+	return z_impl_dac_channel_stop(dev, channel);
+}
+#include <zephyr/syscalls/dac_channel_stop_mrsh.c>

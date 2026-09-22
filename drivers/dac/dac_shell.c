@@ -94,6 +94,32 @@ static int cmd_write_value(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
+static int cmd_stop(const struct shell *sh, size_t argc, char **argv)
+{
+	const struct device *dac;
+	uint8_t channel;
+	int err;
+
+	dac = shell_device_get_binding(argv[args_indx.device]);
+	if (!dac) {
+		shell_error(sh, "DAC device not found");
+		return -EINVAL;
+	}
+
+	channel = strtoul(argv[args_indx.channel], NULL, 0);
+
+	err = dac_channel_stop(dac, channel);
+	if (err == -ENOSYS) {
+		shell_error(sh, "DAC cannot stop an output");
+		return err;
+	} else if (err) {
+		shell_error(sh, "Failed to stop DAC channel (err %d)", err);
+		return err;
+	}
+
+	return 0;
+}
+
 static bool device_is_dac(const struct device *dev)
 {
 	return DEVICE_API_IS(dac, dev);
@@ -120,6 +146,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(dac_cmds,
 	SHELL_CMD_ARG(write_value, &dsub_device_name,
 		      SHELL_HELP("Write DAC value", "<device> <channel> <value>"), cmd_write_value,
 		      4, 0),
+	SHELL_CMD_ARG(stop, &dsub_device_name,
+		      SHELL_HELP("Stop DAC channel driving its output",
+				 "<device> <channel>"), cmd_stop, 3, 0),
 	SHELL_SUBCMD_SET_END
 );
 

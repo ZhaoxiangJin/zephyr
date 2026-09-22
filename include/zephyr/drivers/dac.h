@@ -23,7 +23,7 @@ extern "C" {
  * @brief Interfaces for Digital-to-Analog Converters.
  * @defgroup dac_interface DAC
  * @since 2.3
- * @version 1.1.0
+ * @version 1.2.0
  * @ingroup io_interfaces
  * @{
  *
@@ -462,6 +462,12 @@ typedef int (*dac_api_write_value)(const struct device *dev,
 				    uint8_t channel, uint32_t value);
 
 /**
+ * @brief Type definition of DAC API function for stopping a channel output.
+ * See dac_channel_stop() for argument descriptions.
+ */
+typedef int (*dac_api_channel_stop)(const struct device *dev, uint8_t channel);
+
+/**
  * @driver_ops{DAC}
  */
 __subsystem struct dac_driver_api {
@@ -469,6 +475,8 @@ __subsystem struct dac_driver_api {
 	dac_api_channel_setup channel_setup;
 	/** @driver_ops_mandatory @copybrief dac_write_value */
 	dac_api_write_value   write_value;
+	/** @driver_ops_optional @copybrief dac_channel_stop */
+	dac_api_channel_stop  channel_stop;
 };
 
 /** @} */
@@ -516,6 +524,11 @@ static inline int dac_channel_setup_dt(const struct dac_dt_spec *spec)
 /**
  * @brief Write a single value to a DAC channel
  *
+ * The channel starts driving its output with the given value and keeps driving
+ * it after this function returns. Writing zero selects the bottom of the output
+ * range, it does not stop the output: use dac_channel_stop() for that, on the
+ * drivers that implement it.
+ *
  * @param dev         Pointer to the device structure for the driver instance.
  * @param channel     Number of the channel to be used.
  * @param value       Data to be written to DAC output registers.
@@ -550,6 +563,57 @@ static inline int dac_write_value_dt(const struct dac_dt_spec *spec,
 	}
 
 	return dac_write_value(spec->dev, spec->channel_id, value);
+}
+
+/**
+ * @brief Stop driving a DAC channel output
+ *
+ * Stop the channel so that it no longer drives its output. This is distinct
+ * from writing zero with dac_write_value(), which leaves the channel driving,
+ * at the bottom of its output range. The electrical state a stopped output is
+ * left in is hardware dependent: it may become high impedance, or it may be
+ * determined by the pin configuration.
+ *
+ * The channel keeps the configuration installed by dac_channel_setup(). A
+ * subsequent dac_write_value() starts driving the output again, without the
+ * channel having to be set up a second time.
+ *
+ * @param dev      Pointer to the device structure for the driver instance.
+ * @param channel  Number of the channel to stop.
+ *
+ * @retval 0        On success.
+ * @retval -EINVAL  If a parameter with an invalid value has been provided.
+ * @retval -ENOSYS  If the driver does not support stopping an output.
+ */
+__syscall int dac_channel_stop(const struct device *dev, uint8_t channel);
+
+static inline int z_impl_dac_channel_stop(const struct device *dev, uint8_t channel)
+{
+	const struct dac_driver_api *api = DEVICE_API_GET(dac, dev);
+
+	if (api->channel_stop == NULL) {
+		return -ENOSYS;
+	}
+
+	return api->channel_stop(dev, channel);
+}
+
+/**
+ * @brief Stop driving a DAC channel output from a struct dac_dt_spec.
+ *
+ * @param spec DAC specification from Devicetree.
+ *
+ * @return A value from dac_channel_stop() or -ENOTSUP if information from
+ * Devicetree is not valid.
+ * @see dac_channel_stop()
+ */
+static inline int dac_channel_stop_dt(const struct dac_dt_spec *spec)
+{
+	if (!spec->channel_cfg_dt_node_exists) {
+		return -ENOTSUP;
+	}
+
+	return dac_channel_stop(spec->dev, spec->channel_id);
 }
 
 /**
