@@ -86,6 +86,33 @@ static int mcux_lpdac_write_value(const struct device *dev, uint8_t channel, uin
 	return 0;
 }
 
+static int mcux_lpdac_channel_stop(const struct device *dev, uint8_t channel)
+{
+	const struct mcux_lpdac_config *config = dev->config;
+	struct mcux_lpdac_data *data = dev->data;
+
+	if (!data->configured) {
+		LOG_ERR("channel not initialized");
+		return -EINVAL;
+	}
+
+	if (channel != 0) {
+		LOG_ERR("unsupported channel %d", channel);
+		return -ENOTSUP;
+	}
+
+	/*
+	 * Clearing GCR[DACEN] switches the analog output buffer off, so the
+	 * channel really stops driving its pin. The read-modify-write leaves
+	 * the rest of GCR and the data register alone, so the configuration
+	 * written by DAC_Init() survives and write_value() can drive the output
+	 * again without another channel_setup().
+	 */
+	DAC_Enable(config->base, false);
+
+	return 0;
+}
+
 static int mcux_lpdac_init(const struct device *dev)
 {
 	return 0;
@@ -94,6 +121,7 @@ static int mcux_lpdac_init(const struct device *dev)
 static DEVICE_API(dac, mcux_lpdac_driver_api) = {
 	.channel_setup = mcux_lpdac_channel_setup,
 	.write_value = mcux_lpdac_write_value,
+	.channel_stop = mcux_lpdac_channel_stop,
 };
 
 #define MCUX_LPDAC_INIT(n)                                                                         \
