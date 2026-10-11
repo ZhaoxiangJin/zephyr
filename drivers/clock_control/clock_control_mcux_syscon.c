@@ -66,6 +66,17 @@ static bool mcux_lpc_syscon_ctimer_gate(uint32_t clock_name, clock_ip_name_t *ga
 }
 #endif /* CONFIG_COUNTER_MCUX_CTIMER || CONFIG_PWM_MCUX_CTIMER */
 
+#if defined(CONFIG_PWM_MCUX_SCTIMER) && defined(SCT_CLOCKS)
+#if defined(CONFIG_SOC_FAMILY_MCXN) || defined(CONFIG_SOC_LPC55S36) || \
+	defined(CONFIG_SOC_SERIES_RW6XX) || \
+	defined(CONFIG_SOC_SERIES_IMXRT5XX) || \
+	defined(CONFIG_SOC_SERIES_IMXRT6XX)
+#define MCUX_LPC_SYSCON_SCTIMER_GATE kCLOCK_Sct
+#else
+#define MCUX_LPC_SYSCON_SCTIMER_GATE kCLOCK_Sct0
+#endif
+#endif
+
 static int mcux_lpc_syscon_clock_control_on(const struct device *dev,
 					    clock_control_subsys_t sub_system)
 {
@@ -565,6 +576,12 @@ static int mcux_lpc_syscon_clock_control_on(const struct device *dev,
 	}
 #endif
 
+#if defined(CONFIG_PWM_MCUX_SCTIMER) && defined(SCT_CLOCKS)
+	if ((uint32_t)sub_system == MCUX_SCTIMER_CLK) {
+		CLOCK_EnableClock(MCUX_LPC_SYSCON_SCTIMER_GATE);
+	}
+#endif
+
 	return 0;
 }
 
@@ -618,6 +635,12 @@ static int mcux_lpc_syscon_clock_control_off(const struct device *dev,
 		CLOCK_DisableClock(kCLOCK_GateQDC1);
 	}
 #endif /* FSL_FEATURE_SOC_EQDC_COUNT > 1 */
+#endif
+
+#if defined(CONFIG_PWM_MCUX_SCTIMER) && defined(SCT_CLOCKS)
+	if ((uint32_t)sub_system == MCUX_SCTIMER_CLK) {
+		CLOCK_DisableClock(MCUX_LPC_SYSCON_SCTIMER_GATE);
+	}
 #endif
 
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(opamp0), okay)
