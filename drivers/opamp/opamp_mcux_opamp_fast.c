@@ -8,6 +8,7 @@
 #include <zephyr/pm/device.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/pm/policy.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(nxp_opamp_fast, CONFIG_OPAMP_LOG_LEVEL);
@@ -22,6 +23,11 @@ LOG_MODULE_REGISTER(nxp_opamp_fast, CONFIG_OPAMP_LOG_LEVEL);
  * output is needed. An instance that only provides the reference input of
  * other amplifiers is no different: whoever uses those amplifiers holds its
  * runtime reference too.
+ *
+ * A node that names power states in zephyr,disabling-power-states gets those
+ * states blocked for as long as the device is active, so a consumer that holds
+ * a runtime reference does not have to know which system states would break
+ * the output it asked for.
  */
 
 struct mcux_opamp_fast_config {
@@ -72,6 +78,14 @@ static int mcux_opamp_fast_pm_callback(const struct device *dev, enum pm_device_
 		}
 
 		config->base->OPAMP_CTRL |= OPAMP_OPAMP_CTRL_OPA_EN_MASK;
+
+		/*
+		 * The amplifier drives its output from here until the next
+		 * suspend. Block the states the node declares in
+		 * zephyr,disabling-power-states for that long.
+		 */
+		pm_policy_device_power_lock_get(dev);
+
 		return 0;
 
 	case PM_DEVICE_ACTION_SUSPEND:
@@ -81,6 +95,9 @@ static int mcux_opamp_fast_pm_callback(const struct device *dev, enum pm_device_
 		if (err < 0 && err != -ENOENT) {
 			return err;
 		}
+
+		/* Nothing drives the output until the next resume. */
+		pm_policy_device_power_lock_put(dev);
 
 		/*
 		 * The amplifier is off from here until the next resume, and a
