@@ -830,6 +830,7 @@
 		reg = <0xbb000 0x14>;
 		regulator-name = "mcxa-vref";
 		clocks = <&syscon MCUX_VREF_CLK>;
+		nxp,spc = <&spc>;
 		regulator-min-microvolt = <1000000>;
 		regulator-max-microvolt = <2500000>;
 		#nxp,reference-cells = <1>;
