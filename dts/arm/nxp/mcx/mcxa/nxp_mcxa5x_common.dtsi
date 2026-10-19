@@ -839,6 +839,9 @@
 		nxp,current-compensation-en;
 		nxp,internal-voltage-regulator-en;
 		nxp,chop-oscillator-en;
+		power-domains = <&core_domain>;
+		/* Low-power analog retention is not configured; DPD also resets registers. */
+		zephyr,disabling-power-states = <&deepsleep &powerdown &deeppowerdown>;
 		status = "disabled";
 	};
 
