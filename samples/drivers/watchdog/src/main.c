@@ -10,6 +10,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/watchdog.h>
+#include <zephyr/pm/device_runtime.h>
 #include <zephyr/sys/printk.h>
 #include <stdbool.h>
 
@@ -116,6 +117,12 @@ int main(void)
 		return 0;
 	}
 
+	err = pm_device_runtime_get(wdt);
+	if (err < 0) {
+		printk("Watchdog resume error: %d\n", err);
+		return err;
+	}
+
 	struct wdt_timeout_cfg wdt_config = {
 		/* Reset SoC when watchdog timer expires. */
 		.flags = WDT_FLAG_RESET_SOC,
@@ -143,13 +150,14 @@ int main(void)
 	}
 	if (wdt_channel_id < 0) {
 		printk("Watchdog install error\n");
-		return 0;
+		err = wdt_channel_id;
+		goto release;
 	}
 
 	err = wdt_setup(wdt, WDT_OPT);
 	if (err < 0) {
 		printk("Watchdog setup error\n");
-		return 0;
+		goto release;
 	}
 
 #if WDT_MIN_WINDOW != 0
@@ -160,7 +168,11 @@ int main(void)
 	printk("Feeding watchdog %d times\n", WDT_FEED_TRIES);
 	for (int i = 0; i < WDT_FEED_TRIES; ++i) {
 		printk("Feeding watchdog...\n");
-		wdt_feed(wdt, wdt_channel_id);
+		err = wdt_feed(wdt, wdt_channel_id);
+		if (err < 0) {
+			printk("Watchdog feed error: %d\n", err);
+			return err;
+		}
 		k_sleep(K_MSEC(WDG_FEED_INTERVAL));
 	}
 
@@ -169,5 +181,12 @@ int main(void)
 	while (1) {
 		k_yield();
 	}
-	return 0;
+release: {
+	int ret = pm_device_runtime_put(wdt);
+
+	if (ret < 0) {
+		printk("Watchdog reference cleanup error: %d\n", ret);
+	}
+	return err;
+}
 }

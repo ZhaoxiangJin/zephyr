@@ -7,7 +7,10 @@
 Overview
 ********
 
-This sample demonstrates how to use the watchdog driver API.
+This sample demonstrates how to use the watchdog driver API. It acquires a runtime-PM
+reference before installing a timeout and retains it while the watchdog runs. Startup
+failures release that reference; feed failures are reported without dropping ownership
+of a potentially running watchdog.
 
 A typical use case for a watchdog is that the board is restarted in case some piece of code
 is kept in an infinite loop.
