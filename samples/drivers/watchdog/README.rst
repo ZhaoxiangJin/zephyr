@@ -12,6 +12,12 @@ reference before installing a timeout and retains it while the watchdog runs. St
 failures release that reference; feed failures are reported without dropping ownership
 of a potentially running watchdog.
 
+On MCXN/MCXA WWDT targets, this sample requests continuous supervision with no
+pause options and retains its runtime-PM reference while the watchdog runs.
+The driver constrains incompatible system power states; it does not configure
+SCG or a low-power clock source. Sleep/debugger pause requests are not supported.
+Halting the CPU with a debugger must not be assumed to pause the watchdog.
+
 A typical use case for a watchdog is that the board is restarted in case some piece of code
 is kept in an infinite loop.
 

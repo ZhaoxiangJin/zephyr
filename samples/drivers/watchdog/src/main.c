@@ -19,7 +19,10 @@
 /*
  * To use this sample the devicetree's /aliases must have a 'watchdog0' property.
  */
-#if DT_HAS_COMPAT_STATUS_OKAY(st_stm32_window_watchdog)
+#if DT_HAS_COMPAT_STATUS_OKAY(nxp_lpc_wwdt) &&                                                     \
+	(defined(CONFIG_SOC_FAMILY_MCXN) || defined(CONFIG_SOC_FAMILY_MCXA))
+#define WDT_OPT 0
+#elif DT_HAS_COMPAT_STATUS_OKAY(st_stm32_window_watchdog)
 #define WDT_MAX_WINDOW  100U
 #elif DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_wdt)
 /* Nordic supports a callback, but it has 61.2 us to complete before
