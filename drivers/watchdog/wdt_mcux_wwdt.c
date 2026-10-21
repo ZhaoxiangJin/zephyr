@@ -16,6 +16,7 @@
 #include <zephyr/irq.h>
 #include <zephyr/sys/clock.h>
 #include <zephyr/pm/device.h>
+#include <zephyr/spinlock.h>
 #include <fsl_wwdt.h>
 #include <fsl_clock.h>
 
@@ -40,15 +41,35 @@ struct mcux_wwdt_data {
 	wdt_callback_t callback;
 	wwdt_config_t wwdt_config;
 	bool timeout_valid;
+#if MCUX_WWDT_MCX
+	bool access_clock_on;
+#else
 	bool active_before_sleep;
+#endif
 	bool started;
 #if MCUX_WWDT_MCX
+	struct k_spinlock lock;
+	bool starting;
 	bool faulted;
 	bool disabled;
 #endif
 };
 
 #if MCUX_WWDT_MCX
+static int mcux_wwdt_access_clock(const struct device *dev, bool enable)
+{
+	const struct mcux_wwdt_config *config = dev->config;
+	struct mcux_wwdt_data *data = dev->data;
+	int ret;
+
+	ret = enable ? clock_control_on(config->clock_dev, config->clock_subsys)
+		     : clock_control_off(config->clock_dev, config->clock_subsys);
+	if (ret == 0) {
+		data->access_clock_on = enable;
+	}
+	return ret;
+}
+
 static int mcux_wwdt_mcx_divider(const struct device *dev, clock_div_name_t *divider)
 {
 	const struct mcux_wwdt_config *config = dev->config;
@@ -149,27 +170,67 @@ static inline int mcux_wwdt_get_clock_frequency(const struct device *dev, uint32
 	return 0;
 }
 
+/*
+ * On MCXN/MCXA the consumer holds a runtime reference while the watchdog runs.
+ * A successful disable releases the driver's system-state constraints; the
+ * consumer may then release its runtime reference.
+ */
 static int mcux_wwdt_setup(const struct device *dev, uint8_t options)
 {
 	const struct mcux_wwdt_config *config = dev->config;
 	struct mcux_wwdt_data *data = dev->data;
 	WWDT_Type *base = config->base;
-
 #if MCUX_WWDT_MCX
-	if (data->faulted || data->disabled) {
-		int ret = data->faulted ? -EIO : -ENOTSUP;
+	k_spinlock_key_t key = k_spin_lock(&data->lock);
+	bool irq_enabled;
+	int ret = 0;
 
+	if (data->faulted) {
+		ret = -EIO;
+	} else if (data->starting) {
+		ret = -EBUSY;
+	} else if (data->disabled) {
+		ret = -ENOTSUP;
+	} else if (!data->timeout_valid) {
+		ret = -EINVAL;
+	} else {
+		enum pm_device_state state;
+
+		ret = pm_device_state_get(dev, &state);
+		if ((ret == 0) && ((state != PM_DEVICE_STATE_ACTIVE) || !data->access_clock_on)) {
+			ret = -EBUSY;
+		}
+	}
+
+	if (ret != 0) {
+		k_spin_unlock(&data->lock, key);
 		LOG_ERR("Cannot set up watchdog: %d", ret);
 		return ret;
 	}
-#endif
+
+	data->starting = true;
+	irq_enabled = irq_is_enabled(config->irq) != 0;
+	irq_disable(config->irq);
+	k_spin_unlock(&data->lock, key);
+#else
 	if (!data->timeout_valid) {
 		LOG_ERR("No valid timeouts installed");
 		return -EINVAL;
 	}
+#endif
 
 	WWDT_Init(base, &data->wwdt_config);
+#if MCUX_WWDT_MCX
+	key = k_spin_lock(&data->lock);
+#endif
 	data->started = true;
+#if MCUX_WWDT_MCX
+	data->starting = false;
+	if (irq_enabled) {
+		irq_enable(config->irq);
+	}
+	k_spin_unlock(&data->lock, key);
+#endif
 	LOG_DBG("Setup the watchdog");
 	return 0;
 }
@@ -179,17 +240,24 @@ static int mcux_wwdt_disable(const struct device *dev)
 	const struct mcux_wwdt_config *config = dev->config;
 	struct mcux_wwdt_data *data = dev->data;
 #if MCUX_WWDT_MCX
-	int ret = 0;
+	k_spinlock_key_t key = k_spin_lock(&data->lock);
+	int ret;
 
 	if (data->faulted) {
 		ret = -EIO;
-	} else if (data->started) {
+	} else if (data->starting) {
+		ret = -EBUSY;
+	} else if (!data->started) {
+		data->timeout_valid = false;
+		ret = 0;
+	} else {
 		bool irq_enabled = irq_is_enabled(config->irq) != 0;
 
 		irq_disable(config->irq);
 		ret = mcux_wwdt_clock_halted(dev, true);
 		if (ret == 0) {
 			k_irq_clear_pending(config->irq);
+			data->timeout_valid = false;
 			data->started = false;
 			data->disabled = true;
 		} else if (ret == -ENOTSUP) {
@@ -200,13 +268,11 @@ static int mcux_wwdt_disable(const struct device *dev)
 			data->faulted = true;
 		}
 	}
+	k_spin_unlock(&data->lock, key);
 	if (ret != 0) {
 		LOG_ERR("Cannot disable watchdog: %d", ret);
-		return ret;
 	}
-	data->timeout_valid = false;
-	data->active_before_sleep = false;
-	return 0;
+	return ret;
 #else
 	WWDT_Type *base = config->base;
 
@@ -321,6 +387,9 @@ static int mcux_wwdt_install_timeout(const struct device *dev,
 static int mcux_wwdt_feed(const struct device *dev, int channel_id)
 {
 	const struct mcux_wwdt_config *config = dev->config;
+#if MCUX_WWDT_MCX
+	struct mcux_wwdt_data *data = dev->data;
+#endif
 	WWDT_Type *base = config->base;
 
 	if (channel_id != 0) {
@@ -329,16 +398,24 @@ static int mcux_wwdt_feed(const struct device *dev, int channel_id)
 	}
 
 #if MCUX_WWDT_MCX
-	struct mcux_wwdt_data *data = dev->data;
+	k_spinlock_key_t key = k_spin_lock(&data->lock);
+	int ret = 0;
 
-	if (data->faulted || data->disabled) {
-		int ret = data->faulted ? -EIO : -EINVAL;
-
+	if (data->faulted) {
+		ret = -EIO;
+	} else if (data->disabled || !data->access_clock_on) {
+		ret = -EINVAL;
+	} else {
+		WWDT_Refresh(base);
+	}
+	k_spin_unlock(&data->lock, key);
+	if (ret != 0) {
 		LOG_ERR("Cannot feed watchdog: %d", ret);
 		return ret;
 	}
-#endif
+#else
 	WWDT_Refresh(base);
+#endif
 	LOG_DBG("Fed the watchdog");
 
 	return 0;
@@ -350,14 +427,20 @@ static void mcux_wwdt_isr(const struct device *dev)
 	struct mcux_wwdt_data *data = dev->data;
 	WWDT_Type *base = config->base;
 	uint32_t flags;
-
 #if MCUX_WWDT_MCX
-	if (data->disabled || data->faulted) {
+	k_spinlock_key_t key = k_spin_lock(&data->lock);
+
+	if (!data->access_clock_on || data->starting || data->faulted || data->disabled) {
+		k_spin_unlock(&data->lock, key);
 		return;
 	}
 #endif
+
 	flags = WWDT_GetStatusFlags(base);
 	WWDT_ClearStatusFlags(base, flags);
+#if MCUX_WWDT_MCX
+	k_spin_unlock(&data->lock, key);
+#endif
 
 	if (!data->started) {
 		return;
@@ -368,12 +451,87 @@ static void mcux_wwdt_isr(const struct device *dev)
 	}
 }
 
-/*
- * Power Management:
- * When the system enters sleep mode, this driver maintains awareness
- * of whether the WWDT was active. After wake up, the WDT counter
- * resets to its reload value.
- */
+#if MCUX_WWDT_MCX
+static int mcux_wwdt_set_active(const struct device *dev, bool active)
+{
+	const struct mcux_wwdt_config *config = dev->config;
+	struct mcux_wwdt_data *data = dev->data;
+	WWDT_Type *base = config->base;
+	k_spinlock_key_t key = k_spin_lock(&data->lock);
+	int ret = 0;
+
+	if (data->faulted || data->starting) {
+		ret = data->faulted ? -EIO : -EBUSY;
+		goto out;
+	}
+	ret = mcux_wwdt_access_clock(dev, true);
+	if (ret != 0) {
+		LOG_ERR("Failed to enable clock: %d", ret);
+		goto out;
+	}
+
+	if (data->disabled) {
+		irq_disable(config->irq);
+		if ((base->MOD & WWDT_MOD_WDEN_MASK) != 0U) {
+			ret = mcux_wwdt_clock_halted(dev, false);
+			if (ret != 0) {
+				int err;
+
+				data->faulted = true;
+				LOG_ERR("Disabled watchdog clock restarted: %d", ret);
+				err = mcux_wwdt_access_clock(dev, false);
+				if (err != 0) {
+					LOG_ERR("Failed to close watchdog access clock: %d", err);
+				}
+				goto out;
+			}
+		}
+		if (!active) {
+			ret = mcux_wwdt_access_clock(dev, false);
+			if (ret != 0) {
+				LOG_ERR("Failed to release disabled watchdog clock: %d", ret);
+			}
+		}
+		goto out;
+	}
+
+	if (data->started != ((base->MOD & WWDT_MOD_WDEN_MASK) != 0U)) {
+		data->faulted = true;
+		irq_disable(config->irq);
+		LOG_ERR("Watchdog hardware state does not match its owner");
+		if ((base->MOD & WWDT_MOD_WDEN_MASK) == 0U) {
+			int err = mcux_wwdt_access_clock(dev, false);
+
+			if (err != 0) {
+				LOG_ERR("Failed to release clock after state loss: %d", err);
+			}
+		}
+		ret = -EIO;
+		goto out;
+	}
+
+	if (!data->started) {
+		mcux_wwdt_set_clock_divider(dev);
+		WWDT_ClearStatusFlags(base, WWDT_GetStatusFlags(base));
+		k_irq_clear_pending(config->irq);
+	}
+
+	if (active || data->started) {
+		irq_enable(config->irq);
+	} else {
+		irq_disable(config->irq);
+		ret = mcux_wwdt_access_clock(dev, false);
+		if (ret != 0) {
+			LOG_ERR("Failed to release clock: %d", ret);
+		}
+	}
+
+out:
+	k_spin_unlock(&data->lock, key);
+	return ret;
+}
+#endif
+
 static int mcux_wwdt_driver_pm_action(const struct device *dev,
 				      enum pm_device_action action)
 {
@@ -381,16 +539,58 @@ static int mcux_wwdt_driver_pm_action(const struct device *dev,
 	struct mcux_wwdt_data *data = dev->data;
 	int err = 0;
 
+#if MCUX_WWDT_MCX
+	switch (action) {
+	case PM_DEVICE_ACTION_TURN_ON:
+		return mcux_wwdt_set_active(dev, false);
+	case PM_DEVICE_ACTION_RESUME:
+		return mcux_wwdt_set_active(dev, true);
+	case PM_DEVICE_ACTION_SUSPEND: {
+		k_spinlock_key_t key = k_spin_lock(&data->lock);
+
+		if (data->faulted) {
+			err = -EIO;
+		} else if (data->starting) {
+			err = -EBUSY;
+		} else if (data->started) {
+			/* Keep a running watchdog active while the system sleeps. */
+			err = -ENOTSUP;
+		} else {
+			bool irq_enabled = irq_is_enabled(config->irq) != 0;
+
+			irq_disable(config->irq);
+			err = mcux_wwdt_access_clock(dev, false);
+			if (err != 0) {
+				if (irq_enabled) {
+					irq_enable(config->irq);
+				}
+				LOG_ERR("Failed to suspend watchdog clock: %d", err);
+			}
+		}
+		k_spin_unlock(&data->lock, key);
+		return err;
+	}
+	case PM_DEVICE_ACTION_TURN_OFF: {
+		k_spinlock_key_t key = k_spin_lock(&data->lock);
+
+		if (data->started || data->starting) {
+			err = -EBUSY;
+		}
+		k_spin_unlock(&data->lock, key);
+		if (err != 0) {
+			LOG_ERR("Power removal requested for a running watchdog");
+		}
+		/* The installed configuration is already retained in RAM. */
+		return err;
+	}
+	default:
+		return -ENOTSUP;
+	}
+#else
 	switch (action) {
 	case PM_DEVICE_ACTION_RESUME:
 		break;
 	case PM_DEVICE_ACTION_TURN_ON:
-#if MCUX_WWDT_MCX
-		if (data->disabled) {
-			data->active_before_sleep = false;
-			break;
-		}
-#endif
 		if (data->active_before_sleep) {
 			err = mcux_wwdt_setup(dev, 0);
 			data->active_before_sleep = false;
@@ -409,6 +609,7 @@ static int mcux_wwdt_driver_pm_action(const struct device *dev,
 	}
 
 	return err;
+#endif
 }
 
 static int mcux_wwdt_init(const struct device *dev)
@@ -423,11 +624,13 @@ static int mcux_wwdt_init(const struct device *dev)
 		return ret;
 	}
 
+#if !MCUX_WWDT_MCX
 	ret = clock_control_on(config->clock_dev, config->clock_subsys);
 	if (ret) {
 		LOG_ERR("Failed to enable clock: %d", ret);
 		return ret;
 	}
+#endif
 
 	/* The rest of the device init is done from the
 	 * PM_DEVICE_ACTION_TURN_ON in the pm callback
@@ -468,11 +671,15 @@ static DEVICE_API(wdt, mcux_wwdt_api) = {
 	{                                                                                          \
 		IRQ_CONNECT(DT_INST_IRQN(id), DT_INST_IRQ(id, priority), mcux_wwdt_isr,            \
 			    DEVICE_DT_INST_GET(id), 0);                                            \
-		/* Defensive: clear any peripheral status and NVIC pending */                      \
-		WWDT_ClearStatusFlags((WWDT_Type *)DT_INST_REG_ADDR(id),                           \
-			      WWDT_GetStatusFlags((WWDT_Type *)DT_INST_REG_ADDR(id)));             \
-		k_irq_clear_pending(DT_INST_IRQN(id));                                            \
-		irq_enable(DT_INST_IRQN(id));                                                      \
+		if (MCUX_WWDT_MCX) {                                                              \
+			irq_disable(DT_INST_IRQN(id));                                            \
+		} else {                                                                         \
+			WWDT_ClearStatusFlags(                                                     \
+				(WWDT_Type *)DT_INST_REG_ADDR(id),                                 \
+				WWDT_GetStatusFlags((WWDT_Type *)DT_INST_REG_ADDR(id)));           \
+			k_irq_clear_pending(DT_INST_IRQN(id));                                    \
+			irq_enable(DT_INST_IRQN(id));                                              \
+		}                                                                                \
 	}
 
 DT_INST_FOREACH_STATUS_OKAY(MCUX_WWDT_INIT_CONFIG)
