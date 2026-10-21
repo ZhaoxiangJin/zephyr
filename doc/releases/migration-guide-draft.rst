@@ -437,6 +437,14 @@ Watchdog
   running; disable returns ``-EFAULT`` when not running.
   On MCXN/MCXA, install and setup after successful disable return ``-ENOTSUP``.
 
+  **System PM:** On MCXN/MCXA, a running watchdog now blocks Deep Sleep, Power Down
+  and Deep Power Down by default. Relax ``zephyr,disabling-power-states`` only after
+  verifying the required low-power clocks. Successful disable releases these constraints.
+
+  **Runtime PM:** On MCXN/MCXA, setup requires an ACTIVE device. Hold a runtime reference
+  from before setup until successful disable. Running-device suspend returns ``-ENOTSUP``;
+  do not make a final asynchronous runtime put while the watchdog runs.
+
 Wi-Fi
 =====
 
