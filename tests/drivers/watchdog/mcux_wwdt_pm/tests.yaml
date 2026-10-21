@@ -12,6 +12,7 @@ common:
   harness: ztest
 
 tests:
+  drivers.watchdog.mcux_wwdt.pm: {}
   drivers.watchdog.mcux_wwdt.generic:
     extra_configs:
       - CONFIG_TEST_WWDT_MCX=n

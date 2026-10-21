@@ -16,3 +16,7 @@ evidence that a physical watchdog can stop or restart.
 The task-watchdog tests exercise its production implementation with a failing watchdog
 backend. Hardware oscillator retention, counting accuracy and reset behavior are not
 emulated and require board validation.
+
+The ``drivers.watchdog.mcux_wwdt.pm`` scenario selects the MCX path with a test-only
+MCXN compile definition; it does not turn QEMU into an MCX SoC. Two devices exercise
+independent ownership of overlapping devicetree-based power-state constraints.
