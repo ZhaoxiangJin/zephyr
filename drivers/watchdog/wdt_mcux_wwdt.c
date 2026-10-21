@@ -26,6 +26,7 @@ LOG_MODULE_REGISTER(wdt_mcux_wwdt);
 
 #define MIN_TIMEOUT 0xFF
 #define MAX_TIMEOUT WWDT_TC_COUNT_MASK
+#define MCUX_WWDT_MCX (IS_ENABLED(CONFIG_SOC_FAMILY_MCXN) || IS_ENABLED(CONFIG_SOC_FAMILY_MCXA))
 
 struct mcux_wwdt_config {
 	WWDT_Type *base;
@@ -44,8 +45,67 @@ struct mcux_wwdt_data {
 	bool started;
 	struct k_spinlock lock;
 	bool starting;
+#if !defined(CONFIG_SOC_FAMILY_MCXN) && !defined(CONFIG_SOC_FAMILY_MCXA)
 	bool irq_was_enabled;
+#endif
+	bool faulted;
+	bool disabled;
 };
+
+#if defined(CONFIG_SOC_FAMILY_MCXN) || defined(CONFIG_SOC_FAMILY_MCXA)
+static int mcux_wwdt_mcx_divider(const struct device *dev, clock_div_name_t *divider)
+{
+	const struct mcux_wwdt_config *config = dev->config;
+
+	switch ((uint32_t)config->clock_subsys) {
+	case MCUX_WWDT0_CLK:
+#if defined(CONFIG_SOC_FAMILY_MCXA)
+		*divider = kCLOCK_DivWWDT0;
+#else
+		*divider = kCLOCK_DivWdt0Clk;
+#endif
+		return 0;
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(wwdt1))
+	case MCUX_WWDT1_CLK:
+#if defined(CONFIG_SOC_FAMILY_MCXA)
+		*divider = kCLOCK_DivWWDT1;
+#else
+		*divider = kCLOCK_DivWdt1Clk;
+#endif
+		return 0;
+#endif
+	default:
+		return -ENOTSUP;
+	}
+}
+#endif
+
+static int mcux_wwdt_clock_halted(const struct device *dev, bool halt)
+{
+#if defined(CONFIG_SOC_FAMILY_MCXN) || defined(CONFIG_SOC_FAMILY_MCXA)
+	clock_div_name_t divider;
+	int ret = mcux_wwdt_mcx_divider(dev, &divider);
+
+	if (ret != 0) {
+		return ret;
+	}
+#if defined(CONFIG_SOC_FAMILY_MCXA)
+	if (halt) {
+		CLOCK_HaltClockDiv(divider);
+	}
+	return CLOCK_GetClockDiv(divider) == 0U ? 0 : -EIO;
+#else
+	if (halt) {
+		CLOCK_SetClkDiv(divider, 0U);
+	}
+	return CLOCK_GetClkDiv(divider) == 0U ? 0 : -EIO;
+#endif
+#else
+	ARG_UNUSED(dev);
+	ARG_UNUSED(halt);
+	return -ENOTSUP;
+#endif
+}
 
 static inline int mcux_wwdt_get_clock_frequency(const struct device *dev, uint32_t *freq)
 {
@@ -103,7 +163,9 @@ static void mcux_wwdt_start(const struct device *dev, bool irq_enabled)
 	key = k_spin_lock(&data->lock);
 	data->started = true;
 	data->starting = false;
+#if !defined(CONFIG_SOC_FAMILY_MCXN) && !defined(CONFIG_SOC_FAMILY_MCXA)
 	data->irq_was_enabled = false;
+#endif
 	if (irq_enabled) {
 		irq_enable(config->irq);
 	}
@@ -118,8 +180,12 @@ static int mcux_wwdt_setup(const struct device *dev, uint8_t options)
 	bool irq_enabled;
 	int ret = 0;
 
-	if (data->started || data->starting) {
+	if (MCUX_WWDT_MCX && data->faulted) {
+		ret = -EIO;
+	} else if (data->started || data->starting) {
 		ret = -EBUSY;
+	} else if (MCUX_WWDT_MCX && data->disabled) {
+		ret = -ENOTSUP;
 	} else if (!data->timeout_valid) {
 		ret = -EINVAL;
 	}
@@ -131,7 +197,10 @@ static int mcux_wwdt_setup(const struct device *dev, uint8_t options)
 	}
 
 	data->starting = true;
-	irq_enabled = (irq_is_enabled(config->irq) != 0) || data->irq_was_enabled;
+	irq_enabled = irq_is_enabled(config->irq) != 0;
+#if !defined(CONFIG_SOC_FAMILY_MCXN) && !defined(CONFIG_SOC_FAMILY_MCXA)
+	irq_enabled = irq_enabled || data->irq_was_enabled;
+#endif
 	irq_disable(config->irq);
 	k_spin_unlock(&data->lock, key);
 
@@ -145,21 +214,43 @@ static int mcux_wwdt_disable(const struct device *dev)
 	const struct mcux_wwdt_config *config = dev->config;
 	struct mcux_wwdt_data *data = dev->data;
 	k_spinlock_key_t key = k_spin_lock(&data->lock);
-	int ret = 0;
+	int ret;
 
-	if (data->starting) {
+	if (MCUX_WWDT_MCX && data->faulted) {
+		ret = -EIO;
+	} else if (data->starting) {
 		ret = -EBUSY;
 	} else if (!data->started) {
 		ret = -EFAULT;
 	} else {
-		data->irq_was_enabled = irq_is_enabled(config->irq) != 0;
+		bool irq_enabled = irq_is_enabled(config->irq) != 0;
+
 		irq_disable(config->irq);
-		WWDT_Deinit(config->base);
-		k_irq_clear_pending(config->irq);
-		data->timeout_valid = false;
-		data->callback = NULL;
-		data->active_before_sleep = false;
-		data->started = false;
+		if (MCUX_WWDT_MCX) {
+			ret = mcux_wwdt_clock_halted(dev, true);
+		} else {
+			WWDT_Deinit(config->base);
+			ret = 0;
+		}
+		if (ret == 0) {
+			k_irq_clear_pending(config->irq);
+			data->timeout_valid = false;
+			data->callback = NULL;
+			data->active_before_sleep = false;
+			data->started = false;
+#if !defined(CONFIG_SOC_FAMILY_MCXN) && !defined(CONFIG_SOC_FAMILY_MCXA)
+			data->irq_was_enabled = irq_enabled;
+#endif
+			if (MCUX_WWDT_MCX) {
+				data->disabled = true;
+			}
+		} else if (ret == -ENOTSUP) {
+			if (irq_enabled) {
+				irq_enable(config->irq);
+			}
+		} else {
+			data->faulted = true;
+		}
 	}
 	k_spin_unlock(&data->lock, key);
 	if (ret != 0) {
@@ -182,6 +273,14 @@ static int mcux_wwdt_install_timeout(const struct device *dev,
 	uint32_t clock_freq;
 	int ret;
 
+	if (MCUX_WWDT_MCX && data->faulted) {
+		LOG_ERR("Cannot install timeout on a faulted watchdog");
+		return -EIO;
+	}
+	if (MCUX_WWDT_MCX && data->disabled) {
+		LOG_ERR("Cannot restart a disabled watchdog");
+		return -ENOTSUP;
+	}
 	if (data->starting) {
 		LOG_ERR("Cannot install timeout during watchdog startup");
 		return -EBUSY;
@@ -275,7 +374,9 @@ static int mcux_wwdt_feed(const struct device *dev, int channel_id)
 	k_spinlock_key_t key = k_spin_lock(&data->lock);
 	int ret = 0;
 
-	if (data->starting) {
+	if (MCUX_WWDT_MCX && data->faulted) {
+		ret = -EIO;
+	} else if (data->starting) {
 		ret = -EAGAIN;
 	} else if (!data->started) {
 		ret = -EINVAL;
@@ -298,7 +399,7 @@ static void mcux_wwdt_isr(const struct device *dev)
 	k_spinlock_key_t key = k_spin_lock(&data->lock);
 	uint32_t flags;
 
-	if (!data->started) {
+	if (!data->started || (MCUX_WWDT_MCX && data->faulted)) {
 		k_spin_unlock(&data->lock, key);
 		return;
 	}
