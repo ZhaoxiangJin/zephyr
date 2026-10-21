@@ -25,6 +25,7 @@ LOG_MODULE_REGISTER(wdt_mcux_wwdt);
 
 #define MIN_TIMEOUT 0xFF
 #define MAX_TIMEOUT WWDT_TC_COUNT_MASK
+#define MCUX_WWDT_MCX (IS_ENABLED(CONFIG_SOC_FAMILY_MCXN) || IS_ENABLED(CONFIG_SOC_FAMILY_MCXA))
 
 struct mcux_wwdt_config {
 	WWDT_Type *base;
@@ -32,6 +33,7 @@ struct mcux_wwdt_config {
 	const struct device *clock_dev;
 	clock_control_subsys_t clock_subsys;
 	void (*irq_config_func)(const struct device *dev);
+	unsigned int irq;
 };
 
 struct mcux_wwdt_data {
@@ -40,7 +42,60 @@ struct mcux_wwdt_data {
 	bool timeout_valid;
 	bool active_before_sleep;
 	bool started;
+#if MCUX_WWDT_MCX
+	bool faulted;
+	bool disabled;
+#endif
 };
+
+#if MCUX_WWDT_MCX
+static int mcux_wwdt_mcx_divider(const struct device *dev, clock_div_name_t *divider)
+{
+	const struct mcux_wwdt_config *config = dev->config;
+
+	switch ((uint32_t)config->clock_subsys) {
+	case MCUX_WWDT0_CLK:
+#if defined(CONFIG_SOC_FAMILY_MCXA)
+		*divider = kCLOCK_DivWWDT0;
+#else
+		*divider = kCLOCK_DivWdt0Clk;
+#endif
+		return 0;
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(wwdt1))
+	case MCUX_WWDT1_CLK:
+#if defined(CONFIG_SOC_FAMILY_MCXA)
+		*divider = kCLOCK_DivWWDT1;
+#else
+		*divider = kCLOCK_DivWdt1Clk;
+#endif
+		return 0;
+#endif
+	default:
+		return -ENOTSUP;
+	}
+}
+
+static int mcux_wwdt_clock_halted(const struct device *dev, bool halt)
+{
+	clock_div_name_t divider;
+	int ret = mcux_wwdt_mcx_divider(dev, &divider);
+
+	if (ret != 0) {
+		return ret;
+	}
+#if defined(CONFIG_SOC_FAMILY_MCXA)
+	if (halt) {
+		CLOCK_HaltClockDiv(divider);
+	}
+	return CLOCK_GetClockDiv(divider) == 0U ? 0 : -EIO;
+#else
+	if (halt) {
+		CLOCK_SetClkDiv(divider, 0U);
+	}
+	return CLOCK_GetClkDiv(divider) == 0U ? 0 : -EIO;
+#endif
+}
+#endif
 
 static void mcux_wwdt_set_clock_divider(const struct device *dev)
 {
@@ -100,6 +155,14 @@ static int mcux_wwdt_setup(const struct device *dev, uint8_t options)
 	struct mcux_wwdt_data *data = dev->data;
 	WWDT_Type *base = config->base;
 
+#if MCUX_WWDT_MCX
+	if (data->faulted || data->disabled) {
+		int ret = data->faulted ? -EIO : -ENOTSUP;
+
+		LOG_ERR("Cannot set up watchdog: %d", ret);
+		return ret;
+	}
+#endif
 	if (!data->timeout_valid) {
 		LOG_ERR("No valid timeouts installed");
 		return -EINVAL;
@@ -115,6 +178,36 @@ static int mcux_wwdt_disable(const struct device *dev)
 {
 	const struct mcux_wwdt_config *config = dev->config;
 	struct mcux_wwdt_data *data = dev->data;
+#if MCUX_WWDT_MCX
+	int ret = 0;
+
+	if (data->faulted) {
+		ret = -EIO;
+	} else if (data->started) {
+		bool irq_enabled = irq_is_enabled(config->irq) != 0;
+
+		irq_disable(config->irq);
+		ret = mcux_wwdt_clock_halted(dev, true);
+		if (ret == 0) {
+			k_irq_clear_pending(config->irq);
+			data->started = false;
+			data->disabled = true;
+		} else if (ret == -ENOTSUP) {
+			if (irq_enabled) {
+				irq_enable(config->irq);
+			}
+		} else {
+			data->faulted = true;
+		}
+	}
+	if (ret != 0) {
+		LOG_ERR("Cannot disable watchdog: %d", ret);
+		return ret;
+	}
+	data->timeout_valid = false;
+	data->active_before_sleep = false;
+	return 0;
+#else
 	WWDT_Type *base = config->base;
 
 	WWDT_Deinit(base);
@@ -124,6 +217,7 @@ static int mcux_wwdt_disable(const struct device *dev)
 	LOG_DBG("Disabled the watchdog");
 
 	return 0;
+#endif
 }
 
 /*
@@ -140,6 +234,16 @@ static int mcux_wwdt_install_timeout(const struct device *dev,
 	uint32_t clock_freq;
 	int ret;
 
+#if MCUX_WWDT_MCX
+	if (data->faulted) {
+		LOG_ERR("Cannot install timeout on a faulted watchdog");
+		return -EIO;
+	}
+	if (data->disabled) {
+		LOG_ERR("Cannot restart a disabled watchdog");
+		return -ENOTSUP;
+	}
+#endif
 	if (data->timeout_valid) {
 		LOG_ERR("No more timeouts can be installed");
 		return -ENOMEM;
@@ -224,6 +328,16 @@ static int mcux_wwdt_feed(const struct device *dev, int channel_id)
 		return -EINVAL;
 	}
 
+#if MCUX_WWDT_MCX
+	struct mcux_wwdt_data *data = dev->data;
+
+	if (data->faulted || data->disabled) {
+		int ret = data->faulted ? -EIO : -EINVAL;
+
+		LOG_ERR("Cannot feed watchdog: %d", ret);
+		return ret;
+	}
+#endif
 	WWDT_Refresh(base);
 	LOG_DBG("Fed the watchdog");
 
@@ -237,6 +351,11 @@ static void mcux_wwdt_isr(const struct device *dev)
 	WWDT_Type *base = config->base;
 	uint32_t flags;
 
+#if MCUX_WWDT_MCX
+	if (data->disabled || data->faulted) {
+		return;
+	}
+#endif
 	flags = WWDT_GetStatusFlags(base);
 	WWDT_ClearStatusFlags(base, flags);
 
@@ -266,6 +385,12 @@ static int mcux_wwdt_driver_pm_action(const struct device *dev,
 	case PM_DEVICE_ACTION_RESUME:
 		break;
 	case PM_DEVICE_ACTION_TURN_ON:
+#if MCUX_WWDT_MCX
+		if (data->disabled) {
+			data->active_before_sleep = false;
+			break;
+		}
+#endif
 		if (data->active_before_sleep) {
 			err = mcux_wwdt_setup(dev, 0);
 			data->active_before_sleep = false;
@@ -328,6 +453,7 @@ static DEVICE_API(wdt, mcux_wwdt_api) = {
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(id)),                               \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(id, name),             \
 		.irq_config_func = mcux_wwdt_config_func_##id,                                     \
+		.irq = DT_INST_IRQN(id),                                                           \
 	};                                                                                         \
                                                                                                    \
 	static struct mcux_wwdt_data mcux_wwdt_data_##id;                                          \
