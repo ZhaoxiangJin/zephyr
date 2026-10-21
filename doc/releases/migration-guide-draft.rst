@@ -431,6 +431,21 @@ Timers
   ``z_cms_lptim_hook_on_lpm_entry`` and ``z_cms_lptim_hook_on_lpm_exit`` with
   :c:func:`z_sys_clock_lpm_enter` and :c:func:`z_sys_clock_lpm_exit`, respectively. (:github:`124238`).
 
+Watchdog
+========
+
+* The NXP WWDT driver (:dtcompatible:`nxp,lpc-wwdt`) has these compatibility changes:
+
+  **Disable:** On MCXN/MCXA, successful disable now halts the watchdog's functional clock.
+  In this release, the driver does not support restart within the same software boot,
+  even after a power-domain cycle; reset the system before reusing the instance.
+  This also applies with :kconfig:option:`CONFIG_PM_DEVICE` disabled.
+
+  **Return values:** Setup or timeout installation on a running or starting instance
+  returns ``-EBUSY``. Feed returns ``-EAGAIN`` during startup and ``-EINVAL`` when not
+  running; disable returns ``-EFAULT`` when not running.
+  On MCXN/MCXA, install and setup after successful disable return ``-ENOTSUP``.
+
 W1
 ==
 
