@@ -450,6 +450,30 @@ W1
   should update their ``include:`` statements accordingly; the old files are kept as thin
   includes of the new ones for compatibility.
 
+Watchdog
+========
+
+* The NXP WWDT driver (:dtcompatible:`nxp,lpc-wwdt`) has these compatibility changes:
+
+  **Disable:** On MCXN/MCXA, successful disable now halts the watchdog's functional clock.
+  In this release, the driver does not support restart within the same software boot,
+  even after a power-domain cycle; reset the system before reusing the instance.
+  This also applies with :kconfig:option:`CONFIG_PM_DEVICE` disabled.
+
+  **Return values:** Setup on a running or starting instance and timeout installation
+  during startup return ``-EBUSY``. A second timeout installation otherwise retains
+  ``-ENOMEM``, including while running. Feed returns ``-EAGAIN`` during startup and
+  ``-EINVAL`` when not running; disable returns ``-EFAULT`` when not running.
+  On MCXN/MCXA, install and setup after successful disable return ``-ENOTSUP``.
+
+  **System PM:** On MCXN/MCXA, a running watchdog now blocks Deep Sleep, Power Down
+  and Deep Power Down by default. Relax ``zephyr,disabling-power-states`` only after
+  verifying the required low-power clocks. Successful disable releases these constraints.
+
+  **Runtime PM:** On MCXN/MCXA, setup requires an ACTIVE device. Hold a runtime reference
+  from before setup until successful disable. Running-device suspend returns ``-ENOTSUP``;
+  do not make a final asynchronous runtime put while the watchdog runs.
+
 Wi-Fi
 =====
 
