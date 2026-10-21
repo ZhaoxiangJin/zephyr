@@ -16,6 +16,7 @@
 #include <zephyr/irq.h>
 #include <zephyr/sys/clock.h>
 #include <zephyr/pm/device.h>
+#include <zephyr/spinlock.h>
 #include <fsl_wwdt.h>
 #include <fsl_clock.h>
 
@@ -40,6 +41,8 @@ struct mcux_wwdt_data {
 	bool timeout_valid;
 	bool active_before_sleep;
 	bool started;
+	struct k_spinlock lock;
+	bool starting;
 };
 
 static void mcux_wwdt_set_clock_divider(const struct device *dev)
@@ -133,8 +136,8 @@ static int mcux_wwdt_disable(const struct device *dev)
 #define MSEC_TO_WWDT_TICKS(clock_freq, msec) \
 	((uint32_t)((clock_freq / MSEC_PER_SEC) * msec) / 4)
 
-static int mcux_wwdt_install_timeout(const struct device *dev,
-				     const struct wdt_timeout_cfg *cfg)
+static int mcux_wwdt_install_timeout_config(const struct device *dev,
+					    const struct wdt_timeout_cfg *cfg)
 {
 	struct mcux_wwdt_data *data = dev->data;
 	uint32_t clock_freq;
@@ -212,6 +215,26 @@ static int mcux_wwdt_install_timeout(const struct device *dev,
 		data->wwdt_config.timeoutValue);
 
 	return 0;
+}
+
+static int mcux_wwdt_install_timeout(const struct device *dev, const struct wdt_timeout_cfg *cfg)
+{
+	struct mcux_wwdt_data *data = dev->data;
+	int ret;
+
+	k_spinlock_key_t key = k_spin_lock(&data->lock);
+
+	if (data->started || data->starting) {
+		ret = -EBUSY;
+	} else {
+		ret = mcux_wwdt_install_timeout_config(dev, cfg);
+	}
+	k_spin_unlock(&data->lock, key);
+
+	if (ret < 0) {
+		LOG_ERR("Cannot install watchdog timeout: %d", ret);
+	}
+	return ret;
 }
 
 static int mcux_wwdt_feed(const struct device *dev, int channel_id)
