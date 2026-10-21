@@ -16,6 +16,7 @@
 #include <zephyr/irq.h>
 #include <zephyr/sys/clock.h>
 #include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 #include <zephyr/spinlock.h>
 #include <fsl_wwdt.h>
 #include <fsl_clock.h>
@@ -50,6 +51,7 @@ struct mcux_wwdt_data {
 #if MCUX_WWDT_MCX
 	struct k_spinlock lock;
 	bool starting;
+	bool power_locked;
 	bool faulted;
 #endif
 	bool disabled;
@@ -68,6 +70,26 @@ static int mcux_wwdt_access_clock(const struct device *dev, bool enable)
 		data->access_clock_on = enable;
 	}
 	return ret;
+}
+
+static void mcux_wwdt_power_lock_get(const struct device *dev)
+{
+	struct mcux_wwdt_data *data = dev->data;
+
+	if (IS_ENABLED(CONFIG_PM_POLICY_DEVICE_CONSTRAINTS) && !data->power_locked) {
+		pm_policy_device_power_lock_get(dev);
+		data->power_locked = true;
+	}
+}
+
+static void mcux_wwdt_power_lock_put(const struct device *dev)
+{
+	struct mcux_wwdt_data *data = dev->data;
+
+	if (IS_ENABLED(CONFIG_PM_POLICY_DEVICE_CONSTRAINTS) && data->power_locked) {
+		pm_policy_device_power_lock_put(dev);
+		data->power_locked = false;
+	}
 }
 
 static int mcux_wwdt_mcx_divider(const struct device *dev, clock_div_name_t *divider)
@@ -224,6 +246,7 @@ static int mcux_wwdt_setup(const struct device *dev, uint8_t options)
 	}
 
 	data->starting = true;
+	mcux_wwdt_power_lock_get(dev);
 	irq_enabled = irq_is_enabled(config->irq) != 0;
 	irq_disable(config->irq);
 	k_spin_unlock(&data->lock, key);
@@ -280,6 +303,7 @@ static int mcux_wwdt_disable(const struct device *dev)
 			data->callback = NULL;
 			data->started = false;
 			data->disabled = true;
+			mcux_wwdt_power_lock_put(dev);
 		} else if (ret == -ENOTSUP) {
 			if (irq_enabled) {
 				irq_enable(config->irq);
