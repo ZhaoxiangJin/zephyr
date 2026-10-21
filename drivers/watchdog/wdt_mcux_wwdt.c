@@ -26,6 +26,7 @@ LOG_MODULE_REGISTER(wdt_mcux_wwdt);
 
 #define MIN_TIMEOUT 0xFF
 #define MAX_TIMEOUT WWDT_TC_COUNT_MASK
+#define MCUX_WWDT_MCX (IS_ENABLED(CONFIG_SOC_FAMILY_MCXN) || IS_ENABLED(CONFIG_SOC_FAMILY_MCXA))
 
 struct mcux_wwdt_config {
 	WWDT_Type *base;
@@ -130,6 +131,8 @@ static int mcux_wwdt_setup(const struct device *dev, uint8_t options)
 		ret = -EBUSY;
 	} else if (!data->timeout_valid) {
 		ret = -EINVAL;
+	} else if (MCUX_WWDT_MCX && (options != 0U)) {
+		ret = -ENOTSUP;
 	} else {
 		enum pm_device_state state;
 
