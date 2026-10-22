@@ -1,0 +1,16 @@
+# Copyright 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+#
+# Brings the out-of-tree device-PM harness into the workspace so a Dapeng
+# build_run job can reach tests/mrt. Dapeng clones one repository, so anything
+# the sweep needs has to be reachable from this manifest.
+#
+# This file belongs only to the throwaway branch that is submitted to Dapeng.
+# It is deliberately not part of the reviewable series.
+
+manifest:
+  projects:
+    - name: zephyr-device-pm-test
+      url: https://github.com/ZhaoxiangJin/zephyr-device-pm-test
+      revision: 81c45f07e46808f7b4a26dae107d92169f187213
+      path: zephyr-device-pm-test
