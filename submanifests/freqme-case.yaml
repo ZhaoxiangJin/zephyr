@@ -12,5 +12,5 @@ manifest:
   projects:
     - name: zephyr-device-pm-test
       url: https://github.com/ZhaoxiangJin/zephyr-device-pm-test
-      revision: 4535a139e6a3ad81a8b3ffb19e1b43b6d41e7f0b
+      revision: 6b3da761c89dd34a7441effcc55990a956987d0d
       path: zephyr-device-pm-test
