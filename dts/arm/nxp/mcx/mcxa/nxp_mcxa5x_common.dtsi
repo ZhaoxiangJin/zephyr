@@ -344,6 +344,7 @@
 
 	lpuart0: lpuart@9f000 {
 		compatible = "nxp,lpuart";
+		power-domains = <&core_domain>;
 		status = "disabled";
 		reg = <0x9f000 0x1000>;
 		interrupts = <31 0>;
@@ -354,6 +355,7 @@
 
 	lpuart1: lpuart@a0000 {
 		compatible = "nxp,lpuart";
+		power-domains = <&core_domain>;
 		status = "disabled";
 		reg = <0xa0000 0x1000>;
 		interrupts = <32 0>;
@@ -365,6 +367,7 @@
 
 	lpuart2: lpuart@a1000 {
 		compatible = "nxp,lpuart";
+		power-domains = <&core_domain>;
 		status = "disabled";
 		reg = <0xa1000 0x1000>;
 		interrupts = <33 0>;
@@ -376,6 +379,7 @@
 
 	lpuart3: lpuart@a2000 {
 		compatible = "nxp,lpuart";
+		power-domains = <&core_domain>;
 		status = "disabled";
 		reg = <0xa2000 0x1000>;
 		interrupts = <34 0>;
@@ -387,6 +391,7 @@
 
 	lpuart4: lpuart@a3000 {
 		compatible = "nxp,lpuart";
+		power-domains = <&core_domain>;
 		status = "disabled";
 		reg = <0xa3000 0x1000>;
 		interrupts = <35 0>;
@@ -398,6 +403,7 @@
 
 	lpuart5: lpuart@da000 {
 		compatible = "nxp,lpuart";
+		power-domains = <&core_domain>;
 		status = "disabled";
 		reg = <0xda000 0x1000>;
 		interrupts = <95 0>;
@@ -440,6 +446,7 @@
 		compatible = "nxp,os-timer";
 		reg = <0xad000 0x1000>;
 		interrupts = <57 0>;
+		handoff-power-states = <&deepsleep &powerdown &deeppowerdown>;
 		status = "disabled";
 	};
 
