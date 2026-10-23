@@ -279,6 +279,7 @@
 
 		lpuart0: lpuart@4009f000 {
 			compatible = "nxp,lpuart";
+			power-domains = <&core_domain>;
 			status = "disabled";
 			reg = <0x4009f000 0x1000>;
 			interrupts = <31 0>;
@@ -290,6 +291,7 @@
 
 		lpuart1: lpuart@400a0000 {
 			compatible = "nxp,lpuart";
+			power-domains = <&core_domain>;
 			status = "disabled";
 			reg = <0x400a0000 0x1000>;
 			interrupts = <32 0>;
@@ -301,6 +303,7 @@
 
 		lpuart2: lpuart@400a1000 {
 			compatible = "nxp,lpuart";
+			power-domains = <&core_domain>;
 			status = "disabled";
 			reg = <0x400a1000 0x1000>;
 			interrupts = <33 0>;
@@ -312,6 +315,7 @@
 
 		lpuart3: lpuart@400a2000 {
 			compatible = "nxp,lpuart";
+			power-domains = <&core_domain>;
 			status = "disabled";
 			reg = <0x400a2000 0x1000>;
 			interrupts = <34 0>;
@@ -323,6 +327,7 @@
 
 		lpuart4: lpuart@400a3000 {
 			compatible = "nxp,lpuart";
+			power-domains = <&core_domain>;
 			status = "disabled";
 			reg = <0x400a3000 0x1000>;
 			interrupts = <34 0>;
@@ -700,6 +705,7 @@
 			reg = <0x400ad000 0x1000>;
 			interrupts = <57 0>;
 			resets = <&reset NXP_SYSCON_RESET(1, 0)>;
+			handoff-power-states = <&deepsleep &powerdown &deeppowerdown>;
 			status = "disabled";
 		};
 
