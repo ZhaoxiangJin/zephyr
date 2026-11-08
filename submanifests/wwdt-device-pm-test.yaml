@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: Copyright 2026 NXP
+# SPDX-License-Identifier: Apache-2.0
+
+manifest:
+  projects:
+    - name: zephyr-device-pm-test
+      url: https://github.com/ZhaoxiangJin/zephyr-device-pm-test.git
+      revision: 1644d780bf9e05671a78cea8a42c0f180cecf3ab
+      path: zephyr-device-pm-test
