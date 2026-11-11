@@ -25,6 +25,9 @@
 static atomic_t counter_pm_entries[PM_STATE_COUNT];
 static struct k_sem counter_pm_alarm_sem;
 static int64_t counter_pm_alarm_at_ms;
+static const struct pm_state_info *counter_pm_locked_states;
+static const struct pm_state_info *counter_pm_kept_state;
+static uint8_t counter_pm_locked_state_count;
 
 static void count_state_entry(enum pm_state state)
 {
@@ -185,6 +188,16 @@ static void lock_other_states(const struct pm_state_info *states, uint8_t count,
 		} else {
 			pm_policy_state_lock_put(states[i].state, states[i].substate_id);
 		}
+	}
+
+	if (lock) {
+		counter_pm_locked_states = states;
+		counter_pm_kept_state = keep;
+		counter_pm_locked_state_count = count;
+	} else {
+		counter_pm_locked_states = NULL;
+		counter_pm_kept_state = NULL;
+		counter_pm_locked_state_count = 0U;
 	}
 }
 
@@ -442,10 +455,19 @@ static void *counter_pm_setup(void)
 	return NULL;
 }
 
+static void counter_pm_after(void *fixture)
+{
+	ARG_UNUSED(fixture);
+	if (counter_pm_locked_states != NULL) {
+		lock_other_states(counter_pm_locked_states, counter_pm_locked_state_count,
+				  counter_pm_kept_state, false);
+	}
+}
+
 static void counter_pm_teardown(void *fixture)
 {
 	ARG_UNUSED(fixture);
 	(void)pm_notifier_unregister(&counter_pm_notifier);
 }
 
-ZTEST_SUITE(counter_pm, NULL, counter_pm_setup, NULL, NULL, counter_pm_teardown);
+ZTEST_SUITE(counter_pm, NULL, counter_pm_setup, NULL, counter_pm_after, counter_pm_teardown);
