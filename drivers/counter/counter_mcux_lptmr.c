@@ -241,6 +241,7 @@ static int mcux_lptmr_cancel_alarm(const struct device *dev, uint8_t chan_id)
 	struct mcux_lptmr_data *data = dev->data;
 	k_spinlock_key_t key;
 	int err = 0;
+	bool running;
 
 	if (chan_id >= config->info.channels) {
 		return -EINVAL;
@@ -263,8 +264,7 @@ static int mcux_lptmr_cancel_alarm(const struct device *dev, uint8_t chan_id)
 		err = wuc_disable_wakeup_source_dt(&config->wuc);
 	}
 
-	k_spin_unlock(&data->lock, key);
-
+	running = (config->base->CSR & LPTMR_CSR_TEN_MASK) != 0U;
 	LPTMR_StopTimer(config->base);
 	/*
 	 * LPTMR only has one register (CMR) for both period and alarm.
@@ -272,6 +272,10 @@ static int mcux_lptmr_cancel_alarm(const struct device *dev, uint8_t chan_id)
 	 */
 	LPTMR_SetTimerPeriod(config->base, config->info.max_top_value);
 	LPTMR_ClearStatusFlags(config->base, kLPTMR_TimerCompareFlag);
+	if (running) {
+		LPTMR_StartTimer(config->base);
+	}
+	k_spin_unlock(&data->lock, key);
 
 	return err;
 }
@@ -455,8 +459,13 @@ static void mcux_lptmr_isr(const struct device *dev)
 		 * concurrent set_alarm() cannot have its config clobbered.
 		 */
 		if (!data->alarm_active) {
+			bool running = (config->base->CSR & LPTMR_CSR_TEN_MASK) != 0U;
+
 			LPTMR_StopTimer(config->base);
 			LPTMR_SetTimerPeriod(config->base, config->info.max_top_value);
+			if (running) {
+				LPTMR_StartTimer(config->base);
+			}
 		}
 		k_spin_unlock(&data->lock, key);
 
