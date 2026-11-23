@@ -6,6 +6,9 @@ The output must stop during suspend and resume its saved waveform afterwards,
 including after a TURN_OFF/TURN_ON sequence. Policy and system-managed scenarios
 also check the output device's declared power-state constraints.
 
+Only enabled devicetree power-state nodes participate in those checks, matching
+the PM core's device-constraint table.
+
 FRDM-MCXN947
 ************
 
