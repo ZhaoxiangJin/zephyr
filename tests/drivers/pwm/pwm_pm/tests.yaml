@@ -10,8 +10,10 @@ common:
     fixture: pwm_loopback
   platform_allow:
     - frdm_mcxe247
+    - frdm_mcxn947/mcxn947/cpu0
   integration_platforms:
     - frdm_mcxe247
+    - frdm_mcxn947/mcxn947/cpu0
 tests:
   drivers.pwm.pm: {}
   drivers.pwm.pm.policy:
@@ -27,6 +29,7 @@ tests:
       - CONFIG_COUNTER=y
     extra_args:
       - platform:frdm_mcxe247:EXTRA_DTC_OVERLAY_FILE="boards/frdm_mcxe247_lptmr.overlay"
+      - platform:frdm_mcxn947/mcxn947/cpu0:EXTRA_DTC_OVERLAY_FILE="boards/frdm_mcxn947_mcxn947_cpu0_lptmr.overlay"
   drivers.pwm.pm.sysmanaged:
     # The sweep that suspends devices before a low power state, with the
     # policy locks that are supposed to keep it away from a driving output.
@@ -39,3 +42,4 @@ tests:
       - platform:frdm_mcxe247:CONFIG_IDLE_STACK_SIZE=1024
     extra_args:
       - platform:frdm_mcxe247:EXTRA_DTC_OVERLAY_FILE="boards/frdm_mcxe247_lptmr.overlay"
+      - platform:frdm_mcxn947/mcxn947/cpu0:EXTRA_DTC_OVERLAY_FILE="boards/frdm_mcxn947_mcxn947_cpu0_lptmr.overlay"
