@@ -1,0 +1,6 @@
+manifest:
+  projects:
+    - name: zephyr-device-pm-test
+      url: https://github.com/ZhaoxiangJin/zephyr-device-pm-test
+      revision: 4065e38117f52aa89458a25b72a13188a46778e2
+      path: zephyr-device-pm-test
